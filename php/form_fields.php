@@ -85,6 +85,13 @@ class FormFields {
             'placeholder' => __('Underpayment Slack %', 'blockonomics-bitcoin-payments'),
             'custom_attributes' => ['step' => '0.1', 'min' => '0', 'max' => '20']
         );
+        $form_fields['usdt_testnet'] = array(
+            'title' => __('', 'blockonomics-bitcoin-payments'),
+            'type' => 'checkbox',
+            'subtitle' => __('Enable USDT testnet (sepolia)', 'blockonomics-bitcoin-payments'),
+            'label' => __('Test USDT payments on the sepolia testnet', 'blockonomics-bitcoin-payments'),
+            'default' => 'no',
+        );
         $form_fields['enable_bch'] = array(
             'title' => __('', 'blockonomics-bitcoin-payments'),
             'type' => 'checkbox',

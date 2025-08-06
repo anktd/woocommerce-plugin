@@ -99,11 +99,11 @@ class BlockonomicsTest extends TestCase {
     }
 
     public function testFixDisplayingSmallValuesLessThan10000() {
-        $this->assertEquals("0.000095", $this->blockonomics->fix_displaying_small_values(9500));
+        $this->assertEquals("0.000095", $this->blockonomics->fix_displaying_small_values('btc', 9500));
     }
 
     public function testFixDisplayingSmallValuesGreaterThan10000() {
-        $this->assertEquals(0.0001, $this->blockonomics->fix_displaying_small_values(10000));
+        $this->assertEquals(0.0001, $this->blockonomics->fix_displaying_small_values('btc', 10000));
     }
 
     public function testGetCryptoPaymentUriForBTC() {
