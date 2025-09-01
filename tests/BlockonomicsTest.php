@@ -125,6 +125,10 @@ class BlockonomicsTest extends TestCase {
                 'code' => 'bch',
                 'name' => 'Bitcoin Cash',
                 'uri' => 'bitcoincash'
+            ],
+            'usdt' => [
+                'code' => 'usdt',
+                'name' => 'USDT'
             ]
         ];
         $actualCurrencies = $this->blockonomics->getSupportedCurrencies();
