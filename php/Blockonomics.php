@@ -712,10 +712,13 @@ class Blockonomics
     }
 
 
-    public function get_checkout_template($context){
+    public function get_checkout_template($context, $crypto){
         if (array_key_exists('error_msg', $context)) {
             return 'error';
         } else {
+            if ($crypto === 'usdt') {
+                return 'web3_checkout';
+            }
             return ($this->is_nojs_active()) ? 'nojs_checkout' : 'checkout';
         }
     }
@@ -748,28 +751,13 @@ class Blockonomics
         $context = $this->get_checkout_context($order, $crypto);
         
         // Get Template to Load
-        $template_name = $this->get_checkout_template($context);
+        $template_name = $this->get_checkout_template($context, $crypto);
 
         // Get any additional inline script to load
         $script = $this->get_checkout_script($context, $template_name);
         
         // Load the template
         return $this->load_blockonomics_template($template_name, $context, $script);
-    }
-
-    // Load the the web3 checkout template in the page
-    public function load_web3_checkout_template($order_id, $crypto){
-        // // Create or update the order
-        $order = $this->process_order($order_id, $crypto);
-
-        // // Load Checkout Context
-        $context = $this->get_checkout_context($order, $crypto);
-        
-        // Get Template to Load
-        $template_name = "web3_checkout";
-        
-        // Load the template
-        return $this->load_blockonomics_template($template_name, $context);
     }
 
     public function get_wc_order_received_url($order_id){

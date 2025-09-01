@@ -168,9 +168,6 @@ function blockonomics_woocommerce_init()
             return $blockonomics->load_blockonomics_template('no_crypto_selected');
         } else if ($show_order && $crypto) {
             $order_id = $blockonomics->decrypt_hash($show_order);
-            if($crypto === 'usdt'){
-                return $blockonomics->load_web3_checkout_template($order_id, $crypto);
-            }
             return $blockonomics->load_checkout_template($order_id, $crypto);
         } else if ($select_crypto) {
             return $blockonomics->load_blockonomics_template('crypto_options');
