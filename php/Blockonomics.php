@@ -150,16 +150,19 @@ class Blockonomics
               'btc' => array(
                     'code' => 'btc',
                     'name' => 'Bitcoin',
-                    'uri' => 'bitcoin'
+                    'uri' => 'bitcoin',
+                    'decimals' => 8,
                 ),
                 'bch' => array(
                     'code' => 'bch',
                     'name' => 'Bitcoin Cash',
-                    'uri' => 'bitcoincash'
+                    'uri' => 'bitcoincash',
+                    'decimals' => 8,
                 ),
                 'usdt' => array(
                     'code' => 'usdt',
-                    'name' => 'USDT'
+                    'name' => 'USDT',
+                    'decimals' => 6,
                 )
           );
     }  
@@ -562,7 +565,9 @@ class Blockonomics
         } else {
             $price = 1;
         }
-        $multiplier = (strtolower($order['crypto']) === 'usdt') ? 1.0e6 : 1.0e8;
+        $active_currencies = $this->getActiveCurrencies();
+        $crypto = $active_currencies[$order['crypto']];
+        $multiplier = pow(10, $crypto['decimals']);
         $order['expected_satoshi'] = (int) round($multiplier * $order['expected_fiat'] / $price);
         return $order;
     }
@@ -633,16 +638,20 @@ class Blockonomics
     }
 
     public function fix_displaying_small_values($crypto, $satoshi){
-        $divider = (strtolower($crypto) === 'usdt') ? 1.0e6 : 1.0e8;
+        $active_currencies = $this->getActiveCurrencies();
+        $crypto_obj = $active_currencies[$crypto];
+        $divider = pow(10, $crypto_obj['decimals']);
         if ($satoshi < 10000){
-            return rtrim(number_format($satoshi/$divider, ($divider == 1.0e6) ? 6 : 8), '0');
+            return rtrim(number_format($satoshi/$divider, $crypto_obj['decimals']), '0');
         } else {
             return $satoshi/$divider;
         }
     }
 
     public function get_crypto_rate_from_params($crypto, $value, $satoshi) {
-        $multiplier = (strtolower($crypto) === 'usdt') ? 1.0e6 : 1.0e8;
+        $active_currencies = $this->getActiveCurrencies();
+        $crypto_obj = $active_currencies[$crypto];
+        $multiplier = pow(10, $crypto_obj['decimals']);
         return number_format($value * $multiplier / $satoshi, 2, '.', '');
     }
 
