@@ -254,16 +254,12 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
                 <div class="bnomics-options-margin-top">
                         <div>
                             <?php
-                                $blockonomics = new Blockonomics;
-                                $cryptos = $blockonomics->getSupportedCurrencies();
-                                foreach ($cryptos as $currencyCode => $crypto) {
-                                    if ($currencyCode !== 'bch') {
-                                        echo '<p class="notice notice-success ' . $currencyCode . '-success-notice" style="display:none;width:400px;">'.strtoupper($currencyCode).'  &#9989;</p>';
-                                        echo '<p class="notice notice-error ' . $currencyCode . '-error-notice" style="width:400px;display:none;">';
-                                        echo '<span class="errorText"></span><br />';
-                                        echo '</p>';
-                                    }
-                                }
+                                echo '<p class="notice notice-success" style="display:none;width:400px;">';
+                                echo '<span class="successText"></span><br />';
+                                echo '</p>';
+                                echo '<p class="notice notice-error" style="width:400px;display:none;">';
+                                echo '<span class="errorText"></span><br />';
+                                echo '</p>';
                             ?>
                         </div>
                         <div class="flex-display">
