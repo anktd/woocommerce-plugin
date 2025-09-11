@@ -144,15 +144,44 @@ class Blockonomics
      * Get list of active crypto currencies
      */
     public function getActiveCurrencies() {
-        $active_currencies = array();
-        $blockonomics_currencies = $this->getSupportedCurrencies();
-        foreach ($blockonomics_currencies as $code => $currency) {
-            $settings = get_option('woocommerce_blockonomics_settings');
-            if ($code === 'btc' || ($code === 'bch' && is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') || ($code === 'usdt')) {
-                $active_currencies[$code] = $currency;
+        $api_key = $this->get_api_key();
+
+        if (empty($api_key)) {
+            return $this->setup_error(__('API Key is not set. Please enter your API Key.', 'blockonomics-bitcoin-payments'));
+        }
+
+        // Get currencies enabled on Blockonomics store from API
+        $stores_result = $this->get_stores($api_key);
+        if (!empty($stores_result['error'])) {
+            return $this->setup_error($stores_result['error']);
+        }
+
+        $callback_url = $this->get_callback_url();
+        $match_result = $this->findMatchingStore($stores_result['stores'], $callback_url);
+        $matching_store = $match_result['store'];
+        $match_type = $match_result['match_type'];
+
+        // Result currencies
+        $checkout_currencies = [];
+        $supported_currencies = $this->getSupportedCurrencies();
+
+        // Add BCH if enabled in Woocommerce settings
+        $settings = get_option('woocommerce_blockonomics_settings');
+        if (is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') {
+            $checkout_currencies['bch'] = $supported_currencies['bch'];
+        }
+
+        // Add other currencies from Blockonomics store
+        if ($match_type === 'exact') {
+            $blockonomics_enabled = $this->getStoreEnabledCryptos($matching_store);
+            foreach ($blockonomics_enabled as $code) {
+                if ($code != 'bch' && isset($supported_currencies[$code])) {
+                    $checkout_currencies[$code] = $supported_currencies[$code];
+                }
             }
         }
-        return $active_currencies;
+
+        return $checkout_currencies;
     }
 
     /**
