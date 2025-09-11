@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 3.8.1  =
+* Upated plugin name 
+
 = 3.8  =
 * Fixed bugs with calculations due to discount setting
 

@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: WordPress Bitcoin Payments - Blockonomics
+ * Plugin Name: Bitcoin Payments - Blockonomics
  * Plugin URI: https://github.com/blockonomics/woocommerce-plugin
  * Description: Accept Bitcoin Payments on your WooCommerce-powered website with Blockonomics
- * Version: 3.8
+ * Version: 3.8.1
  * Author: Blockonomics
  * Author URI: https://www.blockonomics.co
  * License: MIT
