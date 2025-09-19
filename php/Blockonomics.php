@@ -165,13 +165,7 @@ class Blockonomics
         $checkout_currencies = [];
         $supported_currencies = $this->getSupportedCurrencies();
 
-        // Add BCH if enabled in Woocommerce settings
-        $settings = get_option('woocommerce_blockonomics_settings');
-        if (is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') {
-            $checkout_currencies['bch'] = $supported_currencies['bch'];
-        }
-
-        // Add other currencies from Blockonomics store
+        // Add currencies from Blockonomics store
         if ($match_type === 'exact') {
             $blockonomics_enabled = $this->getStoreEnabledCryptos($matching_store);
             foreach ($blockonomics_enabled as $code) {
@@ -179,6 +173,12 @@ class Blockonomics
                     $checkout_currencies[$code] = $supported_currencies[$code];
                 }
             }
+        }
+
+        // Add BCH if enabled in Woocommerce settings
+        $settings = get_option('woocommerce_blockonomics_settings');
+        if (is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') {
+            $checkout_currencies['bch'] = $supported_currencies['bch'];
         }
 
         return $checkout_currencies;
@@ -658,8 +658,8 @@ class Blockonomics
         } else {
             $price = 1;
         }
-        $active_currencies = $this->getActiveCurrencies();
-        $crypto = $active_currencies[$order['crypto']];
+        $crypto_data = $this->getSupportedCurrencies();
+        $crypto = $crypto_data[$order['crypto']];
         $multiplier = pow(10, $crypto['decimals']);
         $order['expected_satoshi'] = (int) round($multiplier * $order['expected_fiat'] / $price);
         return $order;
@@ -731,8 +731,8 @@ class Blockonomics
     }
 
     public function fix_displaying_small_values($crypto, $satoshi){
-        $active_currencies = $this->getActiveCurrencies();
-        $crypto_obj = $active_currencies[$crypto];
+        $crypto_data = $this->getSupportedCurrencies();
+        $crypto_obj = $crypto_data[$crypto];
         $divider = pow(10, $crypto_obj['decimals']);
         if ($satoshi < 10000){
             return rtrim(number_format($satoshi/$divider, $crypto_obj['decimals']), '0');
@@ -742,8 +742,8 @@ class Blockonomics
     }
 
     public function get_crypto_rate_from_params($crypto, $value, $satoshi) {
-        $active_currencies = $this->getActiveCurrencies();
-        $crypto_obj = $active_currencies[$crypto];
+        $crypto_data = $this->getSupportedCurrencies();
+        $crypto_obj = $crypto_data[$crypto];
         $multiplier = pow(10, $crypto_obj['decimals']);
         return number_format($value * $multiplier / $satoshi, 2, '.', '');
     }
@@ -757,7 +757,7 @@ class Blockonomics
         $error_context = NULL;
 
         $context['order_id'] = isset($order['order_id']) ? $order['order_id'] : '';
-        $cryptos = $this->getActiveCurrencies();
+        $cryptos = $this->getSupportedCurrencies();
         $context['crypto'] = $cryptos[$crypto];
 
         if (array_key_exists('error', $order)) {
@@ -963,7 +963,7 @@ class Blockonomics
     public function get_order_amount_info($order_id, $crypto){
         $order = $this->process_order($order_id, $crypto);
         $order_amount = $this->fix_displaying_small_values($crypto, $order['expected_satoshi']);        
-        $cryptos = $this->getActiveCurrencies();
+        $cryptos = $this->getSupportedCurrencies();
         $crypto_obj = $cryptos[$crypto];
 
         $response = array(
