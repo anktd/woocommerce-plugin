@@ -21,15 +21,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
-        $active_cryptos = $blockonomics->getActiveCurrencies();
-
-        if (isset($active_cryptos['btc']) && isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-bch-icon.png';
-        } elseif (isset($active_cryptos['btc'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-icon.png';
-        } elseif (isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bch-icon.png';
-        }
+        $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
         $this->has_fields        = false;
         $this->order_button_text = __('Pay with bitcoin', 'blockonomics-bitcoin-payments');
