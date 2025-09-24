@@ -392,6 +392,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $txid = isset($_GET['txid']) ? sanitize_text_field(wp_unslash($_GET['txid'])) : "";
         $rbf = isset($_GET['rbf']) ? wp_validate_boolean(intval(wp_unslash($_GET['rbf']))) : "";
         $txhash = isset($_GET["txhash"]) ? sanitize_text_field(wp_unslash($_GET['txhash'])) : "";
+        $testnet = isset($_GET["testnet"]) ? sanitize_text_field(wp_unslash($_GET['testnet'])) : false;
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
@@ -406,7 +407,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
             $order_id = $blockonomics->decrypt_hash($get_amount);
             $blockonomics->get_order_amount_info($order_id, $crypto);
         } else if ($secret && $addr && isset($status) && $value && $txid) {
-            $blockonomics->process_callback($secret, $crypto, $addr, $status, $value, $txid, $rbf);
+            $blockonomics->process_callback($secret, $crypto, $addr, $status, $value, $txid, $rbf, $testnet);
         }
 
         exit();

@@ -1086,10 +1086,15 @@ class Blockonomics
     }
 
     // Process the blockonomics callback
-    public function process_callback($secret, $crypto, $address, $status, $value, $txid, $rbf){
+    public function process_callback($secret, $crypto, $address, $status, $value, $txid, $rbf, $testnet){
         $this->check_callback_secret($secret);
 
         if (strtolower($crypto) == "usdt"){
+            if ($this->is_usdt_tenstnet_active() && !$testnet) {
+                exit(__("Error: USDT is configured for testnet only", 'blockonomics-bitcoin-payments'));
+            }elseif (!$this->is_usdt_tenstnet_active() && $testnet) {
+                exit(__("Error: USDT is configured for mainnet only", 'blockonomics-bitcoin-payments'));
+            }
             $order = $this->get_order_by_txid($txid);
         }else{
             $order = $this->get_order_by_address($address);
