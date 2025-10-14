@@ -564,6 +564,8 @@ function blockonomics_plugin_setup() {
 function blockonomics_update_primary_key() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'blockonomics_payments';
+    // First replace NULL txid values with empty strings
+    $wpdb->query("UPDATE $table_name SET txid = '' WHERE txid IS NULL");
     $wpdb->query("ALTER TABLE $table_name DROP PRIMARY KEY");
     $wpdb->query("ALTER TABLE $table_name ADD PRIMARY KEY (order_id, crypto, address, txid)");
 }
