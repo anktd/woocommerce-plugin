@@ -672,7 +672,11 @@ class Blockonomics
             // Some error in Address Generation from API, return the same array.
             return $order;
         }
-        $this->insert_order($order);
+        $result = $this->insert_order($order);
+        if (array_key_exists("error", $result)) {
+            // Some error in inserting order to DB, return the error.
+            return $result;
+        }
         $this->record_address($order['order_id'], $order['crypto'], $order['address']);
         return $order;
     }
@@ -925,7 +929,21 @@ class Blockonomics
         );
 
         $result = $wpdb->query($sql);
-        return $result;
+
+        // --- Error handling ---
+        if ($result === false) {
+            $error_msg = $wpdb->last_error ?: 'Unknown database error';
+            // Return a structured error for easier handling
+            return array("error"=> 'Failed to insert order into blockonomics_payments: ' . $error_msg);
+        }
+
+        // --- No rows inserted due to condition (NOT EXISTS) ---
+        if ($result === 0) {
+            return array("error"=> 'Order already exists for given crypto address or txid.');
+        }
+
+        // --- Success ---
+        return array("success"=> $result);
     }
 
     // Updates an order in blockonomics_payments table
@@ -952,7 +970,11 @@ class Blockonomics
                 // Some error in Address Generation from API, return the same array.
                 return $order;
             }
-            $this->insert_order($order);
+            $result = $this->insert_order($order);
+            if (array_key_exists("error", $result)) {
+                // Some error in inserting order to DB, return the error.
+                return $result;
+            }
             $this->record_address($order_id, $crypto, $order['address']);
             $this->record_expected_satoshi($order_id, $crypto, $order['expected_satoshi']);
         }
