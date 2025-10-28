@@ -382,10 +382,18 @@ function blockonomics_woocommerce_init()
         $total_paid_fiat = $blockonomics->calculate_total_paid_fiat($transactions);
         foreach ($transactions as $transaction) {
 
-            $base_url = ($transaction['crypto'] === 'btc') ? Blockonomics::BASE_URL . '/#/search?q=' : Blockonomics::BCH_BASE_URL . '/api/tx?txid=';
+            $crypto = strtolower($transaction['crypto']);
+            if ( $crypto === 'bch' ) {
+                $txid_url = Blockonomics::BCH_BASE_URL . '/api/tx?txid=' . $transaction['txid'] . '&addr=' . $transaction['address'];
+            } elseif ( $crypto === 'usdt' ) {
+                $subdomain = $blockonomics->is_usdt_tenstnet_active() ? 'sepolia' : 'www';
+                $txid_url = 'https://' . $subdomain . '.etherscan.io/tx/' . $transaction['txid'];
+            } else {
+                $txid_url = Blockonomics::BASE_URL . '/#/search?q=' . $transaction['txid'] . '&addr=' . $transaction['address'];
+            }
 
             $output .=  '<tr><td scope="row">';
-            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $base_url . $transaction['txid'] . '&addr=' . $transaction['address'] . '">' . $transaction['txid'] . '</a></td>';
+            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $txid_url . '">' . $transaction['txid'] . '</a></td>';
             $formatted_paid_fiat = ($transaction['payment_status'] == '2') ? wc_price($transaction['paid_fiat']) : 'Processing';
             $output .= '<td>' . $formatted_paid_fiat . '</td></tr>';
 
