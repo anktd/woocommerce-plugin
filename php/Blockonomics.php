@@ -79,6 +79,8 @@ class Blockonomics
             $body = json_decode(wp_remote_retrieve_body($response));
             if (isset($body->message)) {
                 $responseObj->{'response_message'} = $body->message;
+            } elseif (isset($body->error) && isset($body->error->message)) {
+                $responseObj->{'response_message'} = $body->error->message;
             } elseif (isset($body->error_code) && $body->error_code == 1002) {
                 $responseObj->{'response_message'} = __('Multiple wallets found. Please ensure callback URL is set correctly.', 'blockonomics-bitcoin-payments');
             } else {
