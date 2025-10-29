@@ -456,7 +456,11 @@ class Blockonomics
             return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Store</i></a> on Blockonomics Dashboard', 'blockonomics-bitcoin-payments'));
         }
 
-        if ($match_type === 'empty' || $match_type === 'partial') {
+        if ($match_type === 'partial') {
+            return $this->setup_error(__('Please copy Callback URL from Advanced Settings and paste it as your <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Store Callback URL</a>', 'blockonomics-bitcoin-payments'));
+        }
+
+        if ($match_type === 'empty') {
             $update_result = $this->update_store($matching_store->id, [
                 'name' => $matching_store->name,
                 'http_callback' => $callback_url
