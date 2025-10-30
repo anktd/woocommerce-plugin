@@ -2,12 +2,12 @@
 **Contributors:** juhasiivikko, darrenwestwood, blockonomics, ankit61d, btcdeveloper
 **Tags:** bitcoin, accept bitcoin, bitcoin woocommerce, bitcoin wordpress plugin, bitcoin payments
 **Requires at least:** 3.0.1 
-**Tested up to:** 6.8.2
-**Stable tag:** 3.8.1
+**Tested up to:** 6.8.3
+**Stable tag:** 3.8.2
 **License:** MIT 
 **License URI:** http://opensource.org/licenses/MIT 
 
-Accept bitcoin payments and altcoins on your WooCommerce website. Bitcoin payments go directly to your wallet. 
+Accept Bitcoin/USDT payments on your WooCommerce website. Crypto payments go directly to your wallet. 
 
 ## Description ## 
 
@@ -30,13 +30,13 @@ Blockonomics is the only Bitcoin payment gateway that enables full decentralizat
 - **World-class** customer support team 
 
 ### Built for bitcoin merchants ### 
-- Accept Bitcoin (BTC) and Bitcoin Cash (BCH)
+- Accept Bitcoin (BTC) , Bitcoin Cash (BCH) and USDT (ETH ERC-20)
 - **Segwit compatibility** enables the lowest transaction fees possible 
 - All major HD wallets, such as Trezor, Ledger Nano S, Blockchain.info and Mycelium are supported 
 - Supports **all major fiat currencies** 
 - Complete checkout process happens within your website/theme
 - **Privacy friendly** - Customer order information remains private to your shop and is never submitted to Blockonomics
-- 1% Payment Fee, first 20 payments as free 
+- 1% Payment Fee, first 10 payments as free 
 - Callbacks to TOR websites supported
 
 ## Installation ## 

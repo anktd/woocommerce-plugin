@@ -17,14 +17,14 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
         $this->id   = 'blockonomics';
         $this->method_title = __( 'Blockonomics Bitcoin', 'blockonomics-bitcoin-payments' );
-        $this->method_description = __( 'Accept Bitcoin & Bitcoin Cash payments. Payments go directly to your wallet.', 'blockonomics-bitcoin-payments' );
+        $this->method_description = __( 'Accept crypto payments. Payments go directly to your wallet.', 'blockonomics-bitcoin-payments' );
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
         $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
         $this->has_fields        = false;
-        $this->order_button_text = __('Pay with bitcoin', 'blockonomics-bitcoin-payments');
+        $this->order_button_text = __('Pay with crypto', 'blockonomics-bitcoin-payments');
     
         $this->init_form_fields();
         $this->init_settings();
