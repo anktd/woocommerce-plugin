@@ -21,15 +21,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
-        $active_cryptos = $blockonomics->getActiveCurrencies();
-
-        if (isset($active_cryptos['btc']) && isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-bch-icon.png';
-        } elseif (isset($active_cryptos['btc'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bitcoin-icon.png';
-        } elseif (isset($active_cryptos['bch'])) {
-            $this->icon = plugins_url('img', dirname(__FILE__)) . '/bch-icon.png';
-        }
+        $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
         $this->has_fields        = false;
         $this->order_button_text = __('Pay with bitcoin', 'blockonomics-bitcoin-payments');
@@ -254,16 +246,12 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
                 <div class="bnomics-options-margin-top">
                         <div>
                             <?php
-                                $blockonomics = new Blockonomics;
-                                $cryptos = $blockonomics->getSupportedCurrencies();
-                                foreach ($cryptos as $currencyCode => $crypto) {
-                                    if ($currencyCode !== 'bch') {
-                                        echo '<p class="notice notice-success ' . $currencyCode . '-success-notice" style="display:none;width:400px;">'.strtoupper($currencyCode).'  &#9989;</p>';
-                                        echo '<p class="notice notice-error ' . $currencyCode . '-error-notice" style="width:400px;display:none;">';
-                                        echo '<span class="errorText"></span><br />';
-                                        echo '</p>';
-                                    }
-                                }
+                                echo '<p class="notice notice-success" style="display:none;width:400px;">';
+                                echo '<span class="successText"></span><br />';
+                                echo '</p>';
+                                echo '<p class="notice notice-error" style="width:400px;display:none;">';
+                                echo '<span class="errorText"></span><br />';
+                                echo '</p>';
                             ?>
                         </div>
                         <div class="flex-display">
@@ -366,6 +354,7 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         update_option('blockonomics_bitcoin_discount', floatval($this->get_option('bitcoin_discount')));
         update_option('blockonomics_margin', floatval($this->get_option('extra_margin')));
         update_option('blockonomics_underpayment_slack', floatval($this->get_option('underpayment_slack')));
+        update_option('blockonomics_usdt_testnet', $this->get_option('usdt_testnet') == 'yes' ? 1 : 0);
         update_option('blockonomics_partial_payments', $this->get_option('partial_payment') == 'yes' ? 1 : 0);
         update_option('blockonomics_api_key', $this->get_option('api_key'));
         update_option('blockonomics_nojs', $this->get_option('no_javascript') == 'yes' ? 1 : 0);
@@ -402,18 +391,23 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $value = isset($_GET['value']) ? absint($_GET['value']) : "";
         $txid = isset($_GET['txid']) ? sanitize_text_field(wp_unslash($_GET['txid'])) : "";
         $rbf = isset($_GET['rbf']) ? wp_validate_boolean(intval(wp_unslash($_GET['rbf']))) : "";
+        $txhash = isset($_GET["txhash"]) ? sanitize_text_field(wp_unslash($_GET['txhash'])) : "";
+        $testnet = isset($_GET["testnet"]) ? sanitize_text_field(wp_unslash($_GET['testnet'])) : false;
 
         include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
 
         if ($finish_order) {
             $order_id = $blockonomics->decrypt_hash($finish_order);
+            if ($crypto == "usdt"){
+                $blockonomics->process_token_order($order_id, $crypto, $txhash); 
+            }
             $blockonomics->redirect_finish_order($order_id);
         } else if ($get_amount && $crypto) {
             $order_id = $blockonomics->decrypt_hash($get_amount);
             $blockonomics->get_order_amount_info($order_id, $crypto);
         } else if ($secret && $addr && isset($status) && $value && $txid) {
-            $blockonomics->process_callback($secret, $addr, $status, $value, $txid, $rbf);
+            $blockonomics->process_callback($secret, $crypto, $addr, $status, $value, $txid, $rbf, $testnet);
         }
 
         exit();

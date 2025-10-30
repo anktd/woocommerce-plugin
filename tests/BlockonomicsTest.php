@@ -99,11 +99,11 @@ class BlockonomicsTest extends TestCase {
     }
 
     public function testFixDisplayingSmallValuesLessThan10000() {
-        $this->assertEquals("0.000095", $this->blockonomics->fix_displaying_small_values(9500));
+        $this->assertEquals("0.000095", $this->blockonomics->fix_displaying_small_values('btc', 9500));
     }
 
     public function testFixDisplayingSmallValuesGreaterThan10000() {
-        $this->assertEquals(0.0001, $this->blockonomics->fix_displaying_small_values(10000));
+        $this->assertEquals(0.0001, $this->blockonomics->fix_displaying_small_values('btc', 10000));
     }
 
     public function testGetCryptoPaymentUriForBTC() {
@@ -119,12 +119,19 @@ class BlockonomicsTest extends TestCase {
             'btc' => [
                 'code' => 'btc',
                 'name' => 'Bitcoin',
-                'uri' => 'bitcoin'
+                'uri' => 'bitcoin',
+                'decimals' => 8,
             ],
             'bch' => [
                 'code' => 'bch',
                 'name' => 'Bitcoin Cash',
-                'uri' => 'bitcoincash'
+                'uri' => 'bitcoincash',
+                'decimals' => 8,
+            ],
+            'usdt' => [
+                'code' => 'usdt',
+                'name' => 'USDT',
+                'decimals' => 6,
             ]
         ];
         $actualCurrencies = $this->blockonomics->getSupportedCurrencies();

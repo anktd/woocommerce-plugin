@@ -14,7 +14,7 @@ $order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>
         <a href="<?php echo $order_url;?>">
           <button class="bnomics-select-options woocommerce-button button">
             <span class="bnomics-icon-<?php echo $code;?> bnomics-rotate-<?php echo $code;?>"></span>
-            <span class="vertical-line">
+            <span class="vertical-line" style="line-height: 2em;">
               <?=__('Pay with', 'blockonomics-bitcoin-payments')?>
               <?php echo $crypto['name'];?>
             </span>

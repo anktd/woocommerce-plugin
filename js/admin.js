@@ -32,11 +32,10 @@ class BlockonomicsAdmin {
 
         // Initialize crypto DOM elements
         this.cryptoElements = {
-            btc: {
-                success: document.querySelector('.btc-success-notice'),
-                error: document.querySelector('.btc-error-notice'),
-                errorText: document.querySelector('.btc-error-notice .errorText')
-            }
+            success: document.querySelector('.notice-success'),
+            successText: document.querySelector('.notice-success .successText'),
+            error: document.querySelector('.notice-error'),
+            errorText: document.querySelector('.notice-error .errorText')
         };
     }
 
@@ -82,7 +81,11 @@ class BlockonomicsAdmin {
             if (this.state.apiKeyChanged) {
                 await this.saveApiKey();
             }
-
+            const cryptoElements = this.cryptoElements;
+            cryptoElements.success.style.display = 'none';
+            cryptoElements.successText.innerHTML = '';
+            cryptoElements.error.style.display = 'none';
+            cryptoElements.errorText.innerHTML = '';
             const result = await this.performTestSetup();
             this.handleTestSetupResponse(result);
         } catch (error) {
@@ -147,26 +150,41 @@ class BlockonomicsAdmin {
     }
 
     handleTestSetupResponse(result) {
-        this.updateCryptoStatus(result.crypto);
+        this.updateCryptoStatus(result);
         this.updateMetadata(result);
     }
 
     updateCryptoStatus(cryptoResults) {
-        const btcResult = cryptoResults.btc;
-        const btcElements = this.cryptoElements.btc;
+        const cryptoElements = this.cryptoElements;
 
-        if (!btcElements) return;
+        if (cryptoResults && cryptoResults.error) {
+            // Handle string error message
+            cryptoElements.error.style.display = 'block';
+            cryptoElements.errorText.innerHTML = cryptoResults.error;
+            return;
+        }
 
-        if (btcResult === false) {
-            // Success case
-            btcElements.error.style.display = 'none';
-            btcElements.success.style.display = 'block';
-        } else {
-            // Error case
-            btcElements.success.style.display = 'none';
-            btcElements.error.style.display = 'block';
-            if (typeof btcResult === 'string') {
-                btcElements.errorText.innerHTML = btcResult;
+        if (cryptoResults.success_messages) {
+            // Success cases
+            cryptoElements.success.style.display = 'block';
+            for (let index = 0; index < cryptoResults.success_messages.length; index++) {
+                const crypto = cryptoResults.success_messages[index];
+                cryptoElements.successText.innerHTML += crypto;
+                if (index < cryptoResults.success_messages.length - 1) {
+                    cryptoElements.successText.innerHTML += '</br>';
+                }
+            }
+        }
+        
+        if (cryptoResults.error_messages) {
+            // Error cases
+            cryptoElements.error.style.display = 'block';
+            for (let index = 0; index < cryptoResults.error_messages.length; index++) {
+                const crypto = cryptoResults.error_messages[index];
+                cryptoElements.errorText.innerHTML += crypto;
+                if (index < cryptoResults.error_messages.length - 1) {
+                    cryptoElements.errorText.innerHTML += '</br>';
+                }
             }
         }
     }

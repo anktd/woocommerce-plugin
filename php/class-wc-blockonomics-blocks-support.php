@@ -59,19 +59,12 @@ final class WC_Blockonomics_Blocks_Support extends AbstractPaymentMethodType {
         $blockonomics = new Blockonomics;
         $active_cryptos = $blockonomics->getActiveCurrencies();
 
-		if (isset($active_cryptos['btc'])) {
-            $icons_src['btc'] = [
-				'src' => plugins_url('../img/bitcoin-icon.png', __FILE__),
-				'alt' => __( 'Bitcoin', 'blockonomics-bitcoin-payments' ),
+		foreach ($active_cryptos as $code => $crypto) {
+			$icons_src[$crypto['code']] = [
+				'src' => plugins_url('../img/'.$crypto['code'].'.png', __FILE__),
+				'alt' => $crypto['name'],
 			];
-        }
-		
-		if (isset($active_cryptos['bch'])) {
-            $icons_src['bch'] = [
-				'src' => plugins_url('../img/bch-icon.png', __FILE__),
-				'alt' => __( 'Bitcoin Cash', 'blockonomics-bitcoin-payments' ),
-			];
-        }
+		}
 
 		return $icons_src;
 	}

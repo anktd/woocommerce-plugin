@@ -142,11 +142,7 @@ function blockonomics_woocommerce_init()
     function blockonomics_test_setup() {
         include_once plugin_dir_path(__FILE__) . 'php' . DIRECTORY_SEPARATOR . 'Blockonomics.php';
         $blockonomics = new Blockonomics;
-        $result = array();
-
-        $result['crypto'] = $blockonomics->testSetup();
-
-        wp_send_json($result);
+        wp_send_json($blockonomics->testSetup());
         wp_die();
     }
 
@@ -386,10 +382,18 @@ function blockonomics_woocommerce_init()
         $total_paid_fiat = $blockonomics->calculate_total_paid_fiat($transactions);
         foreach ($transactions as $transaction) {
 
-            $base_url = ($transaction['crypto'] === 'btc') ? Blockonomics::BASE_URL . '/#/search?q=' : Blockonomics::BCH_BASE_URL . '/api/tx?txid=';
+            $crypto = strtolower($transaction['crypto']);
+            if ( $crypto === 'bch' ) {
+                $txid_url = Blockonomics::BCH_BASE_URL . '/api/tx?txid=' . $transaction['txid'] . '&addr=' . $transaction['address'];
+            } elseif ( $crypto === 'usdt' ) {
+                $subdomain = $blockonomics->is_usdt_tenstnet_active() ? 'sepolia' : 'www';
+                $txid_url = 'https://' . $subdomain . '.etherscan.io/tx/' . $transaction['txid'];
+            } else {
+                $txid_url = Blockonomics::BASE_URL . '/#/search?q=' . $transaction['txid'] . '&addr=' . $transaction['address'];
+            }
 
             $output .=  '<tr><td scope="row">';
-            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $base_url . $transaction['txid'] . '&addr=' . $transaction['address'] . '">' . $transaction['txid'] . '</a></td>';
+            $output .=  '<a style="word-wrap: break-word;word-break: break-all;" href="' . $txid_url . '">' . $transaction['txid'] . '</a></td>';
             $formatted_paid_fiat = ($transaction['payment_status'] == '2') ? wc_price($transaction['paid_fiat']) : 'Processing';
             $output .= '<td>' . $formatted_paid_fiat . '</td></tr>';
 
@@ -439,6 +443,7 @@ function blockonomics_woocommerce_init()
         wp_register_script( 'qrious', plugins_url('js/vendors/qrious.min.js', __FILE__), array(), get_plugin_data( __FILE__ )['Version'], array( 'strategy' => 'defer' ) );
         wp_register_script( 'copytoclipboard', plugins_url('js/vendors/copytoclipboard.js', __FILE__), array(), get_plugin_data( __FILE__ )['Version'], array( 'strategy' => 'defer' ) );
         wp_register_script( 'bnomics-checkout', plugins_url('js/checkout.js', __FILE__), array('reconnecting-websocket', 'qrious','copytoclipboard'), get_plugin_data( __FILE__ )['Version'], array('in_footer' => true, 'strategy' => 'defer'  ) );  
+        wp_register_script( 'bnomics-web3-checkout', "https://www.blockonomics.co/js/web3-payment.js", False, get_plugin_data( __FILE__ )['Version'], array('in_footer' => true, 'strategy' => 'defer'  ) );
     }
 }
 
@@ -455,7 +460,7 @@ add_action( 'before_woocommerce_init', function() {
 } );
 
 global $blockonomics_db_version;
-$blockonomics_db_version = '1.4';
+$blockonomics_db_version = '1.5';
 
 function blockonomics_create_table() {
     // Create blockonomics_payments table
@@ -473,15 +478,15 @@ function blockonomics_create_table() {
     $sql = "CREATE TABLE $table_name (
         order_id int NOT NULL,
         payment_status int NOT NULL,
-        crypto varchar(3) NOT NULL,
+        crypto varchar(4) NOT NULL,
         address varchar(191) NOT NULL,
         expected_satoshi bigint,
         expected_fiat double,
         currency varchar(3),
         paid_satoshi bigint,
         paid_fiat double,
-        txid text,
-        PRIMARY KEY  (address),
+        txid varchar(191),
+        PRIMARY KEY  (order_id,crypto,address,txid),
         KEY orderkey (order_id,crypto)
     ) $charset_collate;";
     dbDelta( $sql );
@@ -539,9 +544,19 @@ function blockonomics_run_db_updates($installed_ver){
     if (version_compare($installed_ver, '1.2', '<')){
         blockonomics_create_table();
     }
-    if (version_compare($installed_ver, '1.4', '<')){ // Plugin version should be 1.4
+    if (version_compare($installed_ver, '1.4', '<')){
         include_once(WC()->plugin_path().'/includes/admin/wc-admin-functions.php');
         blockonomics_create_payment_page();
+    }
+    if (version_compare($installed_ver, '1.5', '<')){
+        blockonomics_create_table();
+        blockonomics_update_primary_key();
+        // 6. MySQL 8+ only: add partial unique indexes for BTC/USDT
+        $mysql_version = $wpdb->get_var("SELECT VERSION()");
+        if (version_compare($mysql_version, '8.0.0', '>=')) {
+            $wpdb->query("CREATE UNIQUE INDEX unique_btc_address ON $table_name (address) WHERE crypto = 'BTC'");
+            $wpdb->query("CREATE UNIQUE INDEX unique_usdt_txid ON $table_name (txid) WHERE crypto = 'USDT' AND txid <> ''");
+        }
     }
     update_option( 'blockonomics_db_version', $blockonomics_db_version );
 }
@@ -552,6 +567,15 @@ register_activation_hook( __FILE__, 'blockonomics_plugin_setup' );
 function blockonomics_plugin_setup() {
     blockonomics_create_table();
     blockonomics_create_payment_page();
+}
+
+function blockonomics_update_primary_key() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'blockonomics_payments';
+    // First replace NULL txid values with empty strings
+    $wpdb->query("UPDATE $table_name SET txid = '' WHERE txid IS NULL");
+    $wpdb->query("ALTER TABLE $table_name DROP PRIMARY KEY");
+    $wpdb->query("ALTER TABLE $table_name ADD PRIMARY KEY (order_id, crypto, address, txid)");
 }
 
 //Show message when plugin is activated
@@ -589,6 +613,7 @@ function blockonomics_uninstall_hook() {
     delete_option('blockonomics_bch');
     delete_option('blockonomics_btc');
     delete_option('blockonomics_underpayment_slack');
+    delete_option('blockonomics_usdt_testnet');
     // blockonomics_lite is only for db version below 1.3
     delete_option('blockonomics_lite');
     delete_option('blockonomics_nojs');

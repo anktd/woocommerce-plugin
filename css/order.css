@@ -116,6 +116,10 @@ svg {
   content: '\e901';
 }
 
+.bnomics-icon-usdt:before {
+  content: "\e902";
+}
+
 .bnomics-select-options {
   cursor: pointer;
   width: 100%;
@@ -394,7 +398,7 @@ svg {
   justify-content: center;
 }
 
-.bnomics-order-panel {
+.bnomics-order-panel, .bnomics-web3-order-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
