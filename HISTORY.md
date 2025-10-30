@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 3.8.2  =
+* USDT (ETH ERC-20) payments are now supported
+
 = 3.8.1  =
 * Upated plugin name 
 
