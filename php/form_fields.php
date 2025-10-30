@@ -29,7 +29,7 @@ class FormFields {
                 'subtitle' => __('Title', 'blockonomics-bitcoin-payments'),
                 'type' => 'text',
                 'description' => __('Payment method for <i>bitcoin</i> displayed to the user during checkout.', 'blockonomics-bitcoin-payments'),
-                'default' => __('Bitcoin', 'blockonomics-bitcoin-payments'),
+                'default' => __('Crypto', 'blockonomics-bitcoin-payments'),
                 'placeholder' => __('Title', 'blockonomics-bitcoin-payments')
             ),
             'description' => array(
