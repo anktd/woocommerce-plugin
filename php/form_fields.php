@@ -88,8 +88,8 @@ class FormFields {
         $form_fields['usdt_testnet'] = array(
             'title' => __('', 'blockonomics-bitcoin-payments'),
             'type' => 'checkbox',
-            'subtitle' => __('Enable USDT testnet (sepolia)', 'blockonomics-bitcoin-payments'),
-            'label' => __('Test USDT payments on the sepolia testnet', 'blockonomics-bitcoin-payments'),
+            'subtitle' => __('USDT Testnet Mode', 'blockonomics-bitcoin-payments'),
+            'label' => __('USDT payments if enabled will be processed on ETH sepolia network', 'blockonomics-bitcoin-payments'),
             'default' => 'no',
         );
         $form_fields['enable_bch'] = array(
