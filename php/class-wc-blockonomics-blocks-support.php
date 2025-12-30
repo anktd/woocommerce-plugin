@@ -58,6 +58,10 @@ final class WC_Blockonomics_Blocks_Support extends AbstractPaymentMethodType {
 		include_once 'Blockonomics.php';
         $blockonomics = new Blockonomics;
         $active_cryptos = $blockonomics->getActiveCurrencies();
+		$icons_src = [];
+		if (empty($active_cryptos) || isset($active_cryptos['error']) ){
+			return $icons_src;
+		}
 
 		foreach ($active_cryptos as $code => $crypto) {
 			$icons_src[$crypto['code']] = [
