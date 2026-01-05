@@ -587,12 +587,16 @@ class Blockonomics
 
     // Adds the style for blockonomics checkout page
     public function add_blockonomics_checkout_style($template_name, $additional_script=NULL){
+        // static variable ensures the inline script is only added once, regardless of how many times the function is called
+        // Simply put, this fixes the 'blockonomics_data' has already been declared JS error on checkout
+        static $checkout_script_added = false;
         wp_enqueue_style( 'bnomics-style' );
         if ($template_name === 'checkout') {
-            add_action('wp_footer', function() use ($additional_script) {
-                printf('<script type="text/javascript">%s</script>', $additional_script);
-            });
             wp_enqueue_script( 'bnomics-checkout' );
+            if (!$checkout_script_added && $additional_script) {
+                wp_add_inline_script('bnomics-checkout', $additional_script, 'before');
+                $checkout_script_added = true;
+            }
         }elseif ($template_name === 'web3_checkout') {
             wp_enqueue_script( 'bnomics-web3-checkout' );
         }
