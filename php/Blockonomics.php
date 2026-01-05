@@ -344,6 +344,10 @@ class Blockonomics
             $store_base_url = preg_replace(['/https?:\/\//', '/\?.*$/'], '', $store->http_callback);
             $target_base_url = preg_replace(['/https?:\/\//', '/\?.*$/'], '', $callback_url);
 
+            // strip language prefix patterns (/xx/ or /xx-xx/) for WPML/Polylang compatibility
+            $store_base_url = preg_replace('/^([^\/]+)\/[a-z]{2}(-[a-z]{2})?\//', '$1/', $store_base_url);
+            $target_base_url = preg_replace('/^([^\/]+)\/[a-z]{2}(-[a-z]{2})?\//', '$1/', $target_base_url);
+
             if ($store_base_url === $target_base_url) {
                  if (!$partial_match_result) { // Keep the first partial one found
                     $partial_match_result = ['store' => $store, 'match_type' => 'partial'];
