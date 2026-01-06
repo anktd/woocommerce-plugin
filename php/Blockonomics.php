@@ -493,6 +493,9 @@ class Blockonomics
     private function get_callback_url() {
         $callback_secret = get_option("blockonomics_callback_secret");
         $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+        // strip language prefix to ensure consistent callback URL across all languages / regions for WPML/ Polylang compatibility
+        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
+        $api_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $api_url);
         return add_query_arg('secret', $callback_secret, $api_url);
     }
 
