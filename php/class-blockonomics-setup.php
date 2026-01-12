@@ -243,4 +243,59 @@ class Blockonomics_Setup {
         }
         return array('error' => 'Failed to create store');
     }
+
+    /* Find a store by its callback URL
+     * @param string $api_key The API key for Blockonomics
+     * @param string $callback_url The callback URL to search for
+     * @return object|null Store object if found, null otherwise
+     */
+    private function find_store_by_callback($api_key, $callback_url) {
+        $stores_url = Blockonomics::BASE_URL . '/api/v2/stores?wallets=true';
+        $response = wp_remote_get($stores_url, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type' => 'application/json'
+            )
+        ));
+
+        if (is_wp_error($response)) {
+            return null;
+        }
+
+        $stores = json_decode(wp_remote_retrieve_body($response));
+        if (empty($stores->data)) {
+            return null;
+        }
+
+        foreach ($stores->data as $store) {
+            if ($store->http_callback === $callback_url) {
+                return $store;
+            }
+        }
+        return null;
+    }
+
+    /*
+     * Update a store's name. Its used when user provides a different name for an existing store
+     * @param string $api_key The API key for Blockonomics
+     * @param int $store_id The store ID to update
+     * @param string $new_name The new name for the store
+     * @return bool True if successful, false otherwise
+     */
+    private function update_store_name($api_key, $store_id, $new_name) {
+        $response = wp_remote_post(
+            Blockonomics::BASE_URL . '/api/v2/stores/' . $store_id,
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type' => 'application/json'
+                ),
+                'body' => wp_json_encode(array(
+                    'name' => $new_name
+                ))
+            )
+        );
+
+        return wp_remote_retrieve_response_code($response) === 200;
+    }
 }
