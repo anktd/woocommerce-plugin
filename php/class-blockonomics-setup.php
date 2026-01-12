@@ -77,6 +77,8 @@ class Blockonomics_Setup {
 
         $wordpress_callback_url = $this->get_callback_url();
         $base_url = preg_replace('/https?:\/\//', '', WC()->api_request_url('WC_Gateway_Blockonomics'));
+        // regex for wpml / polylang compatibility
+        $base_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $base_url);
 
         foreach ($stores->data as $store) {
             if ($store->http_callback === $wordpress_callback_url) {
