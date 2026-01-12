@@ -179,7 +179,18 @@ class Blockonomics_Setup {
         $api_key = get_option('blockonomics_api_key');
         $wallet_id = get_option('blockonomics_temp_wallet_id');
         $callback_url = $this->get_callback_url();
-        // Step 1: Create store
+        $existing_store = $this->find_store_by_callback($api_key, $callback_url);
+        if ($existing_store !== null) {
+            // store already exists - use it instead of creating duplicate
+            // update store name if user provided a different one
+            if ($store_name !== $existing_store->name) {
+                $this->update_store_name($api_key, $existing_store->id, $store_name);
+                $existing_store->name = $store_name;
+            }
+            return $this->finalize_store_match($existing_store, $api_key);
+        }
+
+        // Step 1: Create store - when no existing store is found
         $store_data = array(
             'name' => $store_name,
             'http_callback' => $callback_url
