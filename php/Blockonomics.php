@@ -548,7 +548,18 @@ class Blockonomics
 
         $this->saveBlockonomicsEnabledCryptos($enabled_cryptos);
 
-        return $this->test_cryptos($enabled_cryptos);
+        $result = $this->test_cryptos($enabled_cryptos);
+        $duplicate_count = isset($match_result['duplicate_count']) ? $match_result['duplicate_count'] : 0;
+        if ($duplicate_count > 0) {
+            $store_name = !empty($matching_store->name) ? $matching_store->name : __('(unnamed)', 'blockonomics-bitcoin-payments');
+            $notice = sprintf(
+                __('Note: Found %d duplicate store(s) with matching callback URL. Using "%s" which has payments enabled. You may want to remove unused stores from your <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Blockonomics dashboard</a>.', 'blockonomics-bitcoin-payments'),
+                $duplicate_count,
+                esc_html($store_name)
+            );
+            $result['duplicate_notice'] = $notice;
+        }
+        return $result;
     }
 
     private function setup_error($msg) {
