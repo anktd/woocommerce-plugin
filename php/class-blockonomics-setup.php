@@ -58,7 +58,7 @@ class Blockonomics_Setup {
         $stores_url = Blockonomics::BASE_URL . '/api/v2/stores?wallets=true';
         $response = wp_remote_get($stores_url, array(
             'headers' => array(
-                'Authorization' => 'Bearer ' . $this->api_key,
+                'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type' => 'application/json'
             )
         ));
@@ -76,38 +76,100 @@ class Blockonomics_Setup {
         $base_url = preg_replace('/https?:\/\//', '', WC()->api_request_url('WC_Gateway_Blockonomics'));
 
         foreach ($stores->data as $store) {
+            // first we check for exact match
             if ($store->http_callback === $wordpress_callback_url) {
-                update_option('blockonomics_store_name', $store->name);
-                return array('success' => true);
+                return $this->finalize_store_match($store, $api_key);
             }
 
             // Check for partial match - only secret or protocol differs
             if (!empty($store->http_callback)) {
                 $store_base_url = preg_replace('/https?:\/\//', '', $store->http_callback);
                 if (strpos($store_base_url, $base_url) === 0) {
-                    $response = wp_remote_post(
-                        Blockonomics::BASE_URL . '/api/v2/stores/' . $partial_match_store->id,
+                    $update_response = wp_remote_post(
+                        Blockonomics::BASE_URL . '/api/v2/stores/' . $store->id,
                         array(
                             'headers' => array(
-                                'Authorization' => 'Bearer ' . $this->api_key,
+                                'Authorization' => 'Bearer ' . $api_key,
                                 'Content-Type' => 'application/json'
                             ),
                             'body' => wp_json_encode(array(
-                                'name' => $partial_match_store->name,
+                                'name' => $store->name,
                                 'http_callback' => $wordpress_callback_url
                             ))
                         )
                     );
 
                     if (wp_remote_retrieve_response_code($response) === 200) {
-                        update_option('blockonomics_store_name', $partial_match_store->name);
-                        return array('success' => true);
+                        return $this->finalize_store_match($store, $api_key);
                     }
                 }
             }
         }
         // No matching store found - need to create a new one
         return array('needs_store' => true);
+    }
+
+    /*
+     * @param object $store The matched store object (with wallets property from ?wallets=true)
+     * @param string $api_key The API key for Blockonomics
+     * @return array Result array with success or error
+     */
+    private function finalize_store_match($store, $api_key) {
+        $temp_wallet_id = get_option('blockonomics_temp_wallet_id');
+
+        if (empty($store->wallets) && $temp_wallet_id) {
+            // Store has no wallets - attach the temp wallet
+            $wallet_attach_response = wp_remote_post(
+                Blockonomics::BASE_URL . '/api/v2/stores/' . $store->id . '/wallets',
+                array(
+                    'headers' => array(
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type' => 'application/json'
+                    ),
+                    'body' => wp_json_encode(array(
+                        'wallet_id' => (int)$temp_wallet_id
+                    ))
+                )
+            );
+
+            if (wp_remote_retrieve_response_code($wallet_attach_response) === 200) {
+                $wallet_attach_data = json_decode(wp_remote_retrieve_body($wallet_attach_response), true);
+                if (!empty($wallet_attach_data['data']['wallets'])) {
+                    $store->wallets = json_decode(json_encode($wallet_attach_data['data']['wallets']));
+                }
+            }
+        }
+
+        $enabled_cryptos = $this->extract_enabled_cryptos($store);
+        if (!empty($enabled_cryptos)) {
+            update_option('blockonomics_enabled_cryptos', implode(',', $enabled_cryptos));
+        }
+
+        update_option('blockonomics_store_name', $store->name);
+
+        delete_option('blockonomics_temp_wallet_id');
+
+        return array('success' => true);
+    }
+
+    /*
+     * Extract enabled crypto currencies from store's wallets
+     * @param object $store Store object with wallets property
+     * @return array Array of lowercase crypto codes (e.g., ['btc', 'usdt'])
+     */
+    private function extract_enabled_cryptos($store) {
+        $enabled_cryptos = array();
+        if (!empty($store->wallets)) {
+            foreach ($store->wallets as $wallet) {
+                if (isset($wallet->crypto)) {
+                    $crypto = strtolower($wallet->crypto);
+                    if (!in_array($crypto, $enabled_cryptos)) {
+                        $enabled_cryptos[] = $crypto;
+                    }
+                }
+            }
+        }
+        return $enabled_cryptos;
     }
 
     public function create_store($store_name) {
