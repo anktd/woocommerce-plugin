@@ -75,34 +75,46 @@ class Blockonomics_Setup {
         $wordpress_callback_url = $this->get_callback_url();
         $base_url = preg_replace('/https?:\/\//', '', WC()->api_request_url('WC_Gateway_Blockonomics'));
 
+        // if multiple store matches, collect all
+        $exact_matches = array();
+        $partial_matches = array();
+
         foreach ($stores->data as $store) {
             // first we check for exact match
             if ($store->http_callback === $wordpress_callback_url) {
-                return $this->finalize_store_match($store, $api_key);
+                $exact_matches[] = $store;
             }
-
             // Check for partial match - only secret or protocol differs
-            if (!empty($store->http_callback)) {
+            elseif (!empty($store->http_callback)) {
                 $store_base_url = preg_replace('/https?:\/\//', '', $store->http_callback);
                 if (strpos($store_base_url, $base_url) === 0) {
-                    $update_response = wp_remote_post(
-                        Blockonomics::BASE_URL . '/api/v2/stores/' . $store->id,
-                        array(
-                            'headers' => array(
-                                'Authorization' => 'Bearer ' . $api_key,
-                                'Content-Type' => 'application/json'
-                            ),
-                            'body' => wp_json_encode(array(
-                                'name' => $store->name,
-                                'http_callback' => $wordpress_callback_url
-                            ))
-                        )
-                    );
-
-                    if (wp_remote_retrieve_response_code($response) === 200) {
-                        return $this->finalize_store_match($store, $api_key);
-                    }
+                    $partial_matches[] = $store;
                 }
+            }
+        }
+        //prefer exact match > partial match
+        if (!empty($exact_matches)){
+            $best_store = $this->select_best_store($exact_matches);
+            return $this->finalize_store_match($best_store, $api_key);
+        }
+        if (!empty($partial_matches)){
+            $best_store = $this->select_best_store($partial_matches);
+            $update_response = wp_remote_post(
+                Blockonomics::BASE_URL . '/api/v2/stores/' . $best_store->id,
+                array(
+                    'headers' => array(
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type' => 'application/json'
+                    ),
+                    'body' => wp_json_encode(array(
+                        'name' => $best_store->name,
+                        'http_callback' => $wordpress_callback_url
+                    ))
+                )
+            );
+
+            if (wp_remote_retrieve_response_code($response) === 200) {
+                return $this->finalize_store_match($best_store, $api_key);
             }
         }
         // No matching store found - need to create a new one
@@ -245,9 +257,10 @@ class Blockonomics_Setup {
     }
 
     /* Find a store by its callback URL
+     * selects best store when multiple matches exist
      * @param string $api_key The API key for Blockonomics
      * @param string $callback_url The callback URL to search for
-     * @return object|null Store object if found, null otherwise
+     * @return object|null Best matching store object if found, null otherwise
      */
     private function find_store_by_callback($api_key, $callback_url) {
         $stores_url = Blockonomics::BASE_URL . '/api/v2/stores?wallets=true';
@@ -267,12 +280,67 @@ class Blockonomics_Setup {
             return null;
         }
 
+        // collect all matching stores
+        $matching_stores = array();
         foreach ($stores->data as $store) {
             if ($store->http_callback === $callback_url) {
-                return $store;
+                $matching_stores[] = $store;
             }
         }
-        return null;
+        if (empty($matching_stores)){
+            return null;
+        }
+        //always return best store from matches
+        return $this->select_best_store($matching_stores);
+    }
+
+    /*
+     * Select the best store from a list of matching stores
+     * determine which store to select based on config
+     * @param array $stores Array of store objects
+     * @return object Best store from the list
+     */
+    private function select_best_store($stores) {
+        if (count($stores) === 1) {
+            return $stores[0];
+        }
+
+        $best_store = $stores[0];
+        $best_score = $this->score_store($stores[0]);
+
+        for ($i = 1; $i < count($stores); $i++) {
+            $score = $this->score_store($stores[$i]);
+            if ($score > $best_score) {
+                $best_score = $score;
+                $best_store = $stores[$i];
+            }
+        }
+        return $best_store;
+    }
+
+    /*
+     * KEY IDEA is to select store with enabled crypto rather than store w/o any crypto enabled and empty string named store
+     * This is so that checkout dont break even when test setup is sucessful. Very edge case type thing but was reported by merchants.
+     * Score a store based on its configuration quality
+     * Higher score = better configured store
+     * Scoring:
+     * - Has wallets attached: +10 (only practical requirement as otherwise the checkout breaks)
+     * - Has a non-empty name: +1 (tie-breaker only, since unnamed store can be created by multiple clicks on setup wizard)
+     * @param object $store Store object with wallets property
+     * @return int Score value
+     */
+    private function score_store($store) {
+        $score = 0;
+        //  crypto/wallets enabled? +10 (this is only thing we are concerned about)
+        if (!empty($store->wallets)) {
+            $score += 10;
+        }
+        // has a non-empty name: +1 (this is never used but we still account for it)
+        $name = trim($store->name ?? '');
+        if (!empty($name)) {
+            $score += 1;
+        }
+        return $score;
     }
 
     /*

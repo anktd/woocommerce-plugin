@@ -543,7 +543,18 @@ class Blockonomics
 
         $enabled_cryptos = $this->getStoreEnabledCryptos($matching_store);
         if (empty($enabled_cryptos)) {
-            return $this->setup_error(__('Please enable Payment method on <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Stores</i></a>', 'blockonomics-bitcoin-payments'));
+            // if no crypto enabled on store, show error msg
+            // with store name: Please enable Payment method on your store MySampleStoreName
+            // empty store name: Please enable Payment method on Stores
+            if (!empty($matching_store->name)){
+                $error_msg = sprintf(
+                    __('Please enable Payment method on your store <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>%s</i></a>', 'blockonomics-bitcoin-payments'),
+                    esc_html($matching_store->name)
+                );
+            } else{
+                $error_msg = __('Please enable Payment method on <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Stores</i></a>', 'blockonomics-bitcoin-payments');
+            }
+            return $this->setup_error($error_msg);
         }
 
         $this->saveBlockonomicsEnabledCryptos($enabled_cryptos);

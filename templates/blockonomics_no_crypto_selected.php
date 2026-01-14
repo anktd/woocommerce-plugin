@@ -1,8 +1,13 @@
 <div class="bnomics-order-container">
     <h3>
-    No crypto currencies are enabled for checkout
+    <?php esc_html_e('No crypto currencies are enabled for checkout', 'blockonomics-bitcoin-payments'); ?>
     </h3>
     <p>
-    Note to webmaster: Can be enabled via Wordpress Admin > Settings > Blockonomics > Currencies
+    <?php
+    printf(
+    esc_html__('Note to webmaster: Please enable Payment method on %s to enable crypto payments.', 'blockonomics-bitcoin-payments'),
+    '<a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Stores</a>'
+    );
+    ?>
     </p>
 </div>
