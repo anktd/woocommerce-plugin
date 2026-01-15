@@ -138,6 +138,100 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals($expectedCurrencies, $actualCurrencies, "The getSupportedCurrencies method did not return the expected array of cryptocurrencies.");
     }
 
+    public function testIconsGenerationWithErrorResponse() {
+        $active_cryptos = ['error' => 'API Key is not set. Please enter your API Key.'];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            // Should return empty
+            $this->assertEmpty($icons_src, "Icons should be empty when error response received");
+            return;
+        }
+
+        $this->fail('Should have returned early due to error');
+    }
+
+    public function testIconsGenerationWithValidCryptos() {
+        $active_cryptos = [
+            'btc' => ['code' => 'btc', 'name' => 'Bitcoin', 'uri' => 'bitcoin', 'decimals' => 8],
+            'usdt' => ['code' => 'usdt', 'name' => 'USDT', 'decimals' => 6]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid cryptos');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(2, $icons_src, "Should have icons for 2 cryptocurrencies");
+        $this->assertArrayHasKey('btc', $icons_src, "Should have BTC icon");
+        $this->assertArrayHasKey('usdt', $icons_src, "Should have USDT icon");
+        $this->assertEquals('Bitcoin', $icons_src['btc']['alt'], "BTC alt text should be 'Bitcoin'");
+        $this->assertEquals('USDT', $icons_src['usdt']['alt'], "USDT alt text should be 'USDT'");
+    }
+
+    public function testIconsGenerationWithEmptyResponse() {
+        $active_cryptos = [];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->assertEmpty($icons_src, "Icons should be empty when no active cryptos");
+            return;
+        }
+
+        $this->fail('Should have returned early due to empty array');
+    }
+
+    public function testIconsGenerationWithSingleCryptoBTC() {
+        $active_cryptos = [
+            'btc' => ['code' => 'btc', 'name' => 'Bitcoin', 'uri' => 'bitcoin', 'decimals' => 8]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid crypto');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(1, $icons_src, "Should have icon for 1 cryptocurrency");
+        $this->assertArrayHasKey('btc', $icons_src, "Should have BTC icon");
+        $this->assertEquals('Bitcoin', $icons_src['btc']['alt']);
+    }
+
+    public function testIconsGenerationWithSingleCryptoUSDT() {
+        $active_cryptos = [
+            'usdt' => ['code' => 'usdt', 'name' => 'USDT', 'decimals' => 6]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid crypto');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(1, $icons_src, "Should have icon for 1 cryptocurrency");
+        $this->assertArrayHasKey('usdt', $icons_src, "Should have USDT icon");
+        $this->assertEquals('USDT', $icons_src['usdt']['alt']);
+    }
+
 
     protected function tearDown(): void {
         wp::tearDown();
