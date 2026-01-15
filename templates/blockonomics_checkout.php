@@ -98,7 +98,7 @@
                             <div class="bnomics-order-address">
                                 <span class="copy-title">Copy</span>
                                 <div class="bnomics-address">
-                                    <label class="bnomics-address-text"><?= __('Send ', 'blockonomics-bitcoin-payments') ?> <?php echo strtolower($crypto['name']); ?> <?= __('to this address:', 'blockonomics-bitcoin-payments') ?></label>
+                                    <label class="bnomics-address-text"><?= __('Send', 'blockonomics-bitcoin-payments') ?> <?php echo $crypto['name']; ?> <?= __('to this address:', 'blockonomics-bitcoin-payments') ?></label>
                                     <label class="bnomics-copy-address-text"><?= __('Copied to clipboard', 'blockonomics-bitcoin-payments') ?></label>
                                 </div>
 
@@ -107,7 +107,7 @@
                                 </div>
 
                                 <div class="bnomics-amount">
-                                    <label class="bnomics-amount-text"><?= __('Amount of', 'blockonomics-bitcoin-payments') ?> <?php echo strtolower($crypto['name']); ?> (<?php echo strtoupper($crypto['code']); ?>) <?= __('to send:', 'blockonomics-bitcoin-payments') ?></label>
+                                    <label class="bnomics-amount-text"><?= __('Amount of', 'blockonomics-bitcoin-payments') ?> <?php echo strtoupper($crypto['code']); ?> <?= __('to send:', 'blockonomics-bitcoin-payments') ?></label>
                                     <label class="bnomics-copy-amount-text"><?= __('Copied to clipboard', 'blockonomics-bitcoin-payments') ?></label>
                                 </div>
 

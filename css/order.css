@@ -382,6 +382,21 @@ svg {
   padding: 5px;
   color: currentColor;
   margin: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f9f9f9;
+  font-family: monospace;
+  font-size: 14px;
+  /* min 44px for mobiles */
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+#bnomics-address-input:focus,
+#bnomics-amount-input:focus {
+  outline: none;
+  border-color: #666;
+  background: #fff;
 }
 
 .bnomics-order-address {
@@ -446,11 +461,19 @@ svg {
 }
 
 .scan-title,
-.copy-title { 
-  font-weight: bold;
+.copy-title {
+  font-weight: normal;
   font-size: var(--global--font-size-xs);
+  width: 100%;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.scan-title{
+  text-align: center;
+}
+.copy-title{
   text-align: left;
-  width:100%;
 }
 
 .bnomics-address,
