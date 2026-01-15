@@ -650,13 +650,17 @@ class Blockonomics
     // Returns url to redirect the user to during checkout
     public function get_order_checkout_url($order_id){
         $active_cryptos = $this->getActiveCurrencies();
-        // Check if more than one crypto is activated
         $order_hash = $this->encrypt_hash($order_id);
+        // handle php error from getActiveCurrencies, when api fails
+        if (isset($active_cryptos['error'])) {
+            return $this->get_parameterized_wc_url('page',array('crypto' => 'empty'));
+        }
+        // check how many crypto are activate
         if (count($active_cryptos) > 1) {
             $order_url = $this->get_parameterized_wc_url('page',array('select_crypto' => $order_hash));
         } elseif (count($active_cryptos) === 1) {
             $order_url = $this->get_parameterized_wc_url('page',array('show_order' => $order_hash, 'crypto' => array_keys($active_cryptos)[0]));
-        } else if (count($active_cryptos) === 0) {
+        } else {
             $order_url = $this->get_parameterized_wc_url('page',array('crypto' => 'empty'));
         }
         return $order_url;
