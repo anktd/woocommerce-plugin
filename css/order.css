@@ -531,3 +531,28 @@ svg {
 
 }
 
+/* NoJS checkout styling */
+#blockonomics_checkout.no-js .bnomics-order-panel {
+  text-align: center;
+}
+
+#blockonomics_checkout.no-js .bnomics-qr-code {
+  margin: 20px 0;
+}
+
+#blockonomics_checkout.no-js .bnomics-crypto-price-timer {
+  display: block;
+  color: #666;
+  margin: 15px 0;
+}
+
+#blockonomics_checkout.no-js #bnomics-refresh {
+  margin-top: 10px;
+  padding: 12px 24px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#blockonomics_checkout.no-js a[href=""] {
+  text-decoration: none;
+}
