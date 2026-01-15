@@ -14,7 +14,14 @@
  * $qrcode_svg_element: Generate QR Code when NoJS mode is active.
  */
 ?>
-<div id="blockonomics_checkout">
+<div id="blockonomics_checkout"
+    data-time-period="<?php echo esc_attr($context['time_period']); ?>"
+    data-payment-uri="<?php echo esc_attr($payment_uri); ?>"
+    data-crypto-code="<?php echo esc_attr($crypto['code']); ?>"
+    data-crypto-address="<?php echo esc_attr($order['address']); ?>"
+    data-finish-order-url="<?php echo esc_attr($context['finish_order_url']); ?>"
+    data-get-order-amount-url="<?php echo esc_attr($context['get_order_amount_url']); ?>"
+>
     <div class="bnomics-order-container">
 
         <!-- Spinner -->

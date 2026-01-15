@@ -695,17 +695,10 @@ class Blockonomics
     }
 
     // Adds the style for blockonomics checkout page
-    public function add_blockonomics_checkout_style($template_name, $additional_script=NULL){
-        // static variable ensures the inline script is only added once, regardless of how many times the function is called
-        // Simply put, this fixes the 'blockonomics_data' has already been declared JS error on checkout
-        static $checkout_script_added = false;
+    public function add_blockonomics_checkout_style($template_name){
         wp_enqueue_style( 'bnomics-style' );
         if ($template_name === 'checkout') {
             wp_enqueue_script( 'bnomics-checkout' );
-            if (!$checkout_script_added && $additional_script) {
-                wp_add_inline_script('bnomics-checkout', $additional_script, 'before');
-                $checkout_script_added = true;
-            }
         }elseif ($template_name === 'web3_checkout') {
             wp_enqueue_script( 'bnomics-web3-checkout' );
         }
@@ -720,10 +713,9 @@ class Blockonomics
     }
 
     // Adds the selected template to the blockonomics page
-    public function load_blockonomics_template($template_name, $context = array(), $additional_script = NULL){
-        $this->add_blockonomics_checkout_style($template_name, $additional_script);
+    public function load_blockonomics_template($template_name, $context = array()){
+        $this->add_blockonomics_checkout_style($template_name);
 
-        // Load the selected template
         $template = 'blockonomics_'.$template_name.'.php';
         // Load Template Context
         extract($context);
@@ -902,15 +894,18 @@ class Blockonomics
             } else {
                 // Display Checkout Page
                 $context['order_amount'] = $this->fix_displaying_small_values($context['crypto']['code'], $order['expected_satoshi']);
+                $order_hash = $this->encrypt_hash($context['order_id']);
                 if ($context['crypto']['code'] === 'usdt') {
                     // Include the finish_order_url and testnet setting for USDT payment redirect
-                    $order_hash = $this->encrypt_hash($context['order_id']);
                     $context['finish_order_url'] = $this->get_parameterized_wc_url('api',array('finish_order'=>$order_hash, 'crypto'=>  $context['crypto']['code']));
                     $context['testnet'] = $this->is_usdt_tenstnet_active() ? '1' : '0';
                 }else {
                     // Payment URI is sent as part of context to provide initial Payment URI, this can be calculated using javascript
                     // but we also need the URI for NoJS Templates and it makes sense to generate it from a single location to avoid redundancy!
                     $context['payment_uri'] = $this->get_crypto_payment_uri($context['crypto'], $order['address'], $context['order_amount']);
+                    $context['finish_order_url'] = $this->get_wc_order_received_url($context['order_id']);
+                    $context['get_order_amount_url'] = $this->get_parameterized_wc_url('api', array('get_amount' => $order_hash, 'crypto' => $context['crypto']['code']));
+                    $context['time_period'] = get_option('blockonomics_timeperiod', 10);
                 }
                 $context['crypto_rate_str'] = $this->get_crypto_rate_from_params($context['crypto']['code'], $order['expected_fiat'], $order['expected_satoshi']);
                 //Using svg library qrcode.php to generate QR Code in NoJS mode
@@ -947,25 +942,6 @@ class Blockonomics
         }
     }
 
-    public function get_checkout_script($context, $template_name) {
-        $script = NULL;
-
-        if ($template_name === 'checkout') {
-            $order_hash = $this->encrypt_hash($context['order_id']);
-            
-            $script = "const blockonomics_data = '" . json_encode( array (
-                'crypto' => $context['crypto'],
-                'crypto_address' => $context['order']['address'],
-                'time_period' => get_option('blockonomics_timeperiod', 10),
-                'finish_order_url' => $this->get_wc_order_received_url($context['order_id']),
-                'get_order_amount_url' => $this->get_parameterized_wc_url('api',array('get_amount'=>$order_hash, 'crypto'=>  $context['crypto']['code'])),
-                'payment_uri' => $context['payment_uri']
-            )). "'";
-        }
-
-        return $script;
-    }
-
     // Load the the checkout template in the page
     public function load_checkout_template($order_id, $crypto){
         // Create or update the order
@@ -976,12 +952,9 @@ class Blockonomics
         
         // Get Template to Load
         $template_name = $this->get_checkout_template($context, $crypto);
-
-        // Get any additional inline script to load
-        $script = $this->get_checkout_script($context, $template_name);
         
         // Load the template
-        return $this->load_blockonomics_template($template_name, $context, $script);
+        return $this->load_blockonomics_template($template_name, $context);
     }
 
     public function get_wc_order_received_url($order_id){

@@ -16,21 +16,22 @@ class Blockonomics {
             );
         }
 
-        // Load data attributes
-        // This assumes a constant/var `blockonomics_data` is defined before the script is called.
-        try {
-            this.data = JSON.parse(blockonomics_data);
-        } catch (e) {
-            if (e.toString().includes('ReferenceError')) {
-                throw Error(
-                    `Blockonomics Initialisation Error: Data Object was not found in Window. Please set blockonomics_data variable.`
-                );
-            }
+        // we load data from HTML data attributes on the container element
+        // this approach is simple and avoids the js error blockonomics_data already initialised
+        const dataset = this.container.dataset;
+        if (!dataset.timePeriod || !dataset.paymentUri || !dataset.cryptoCode) {
             throw Error(
-                `Blockonomics Initialisation Error: Data Object is not a valid JSON.`
+                `Blockonomics Initialisation Error: Required data attributes are missing from container element.`
             );
         }
-
+        this.data = {
+            time_period: dataset.timePeriod,
+            payment_uri: dataset.paymentUri,
+            crypto: { code: dataset.cryptoCode },
+            crypto_address: dataset.cryptoAddress,
+            finish_order_url: dataset.finishOrderUrl,
+            get_order_amount_url: dataset.getOrderAmountUrl
+        };
         this.create_bindings();
 
         this.reset_progress();
