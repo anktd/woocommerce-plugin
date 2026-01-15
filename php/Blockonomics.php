@@ -77,14 +77,14 @@ class Blockonomics
         $response = $this->post($url, $this->api_key, '', 8);
         if (!isset($responseObj)) $responseObj = new stdClass();
         $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
+        $responseObj->{'response_message'} = '';
+        $responseObj->{'address'} = '';
         if (wp_remote_retrieve_body($response)) {
             $body = json_decode(wp_remote_retrieve_body($response));
             if (isset($body->message)) {
                 $responseObj->{'response_message'} = $body->message;
             } elseif (isset($body->error) && isset($body->error->message)) {
                 $responseObj->{'response_message'} = $body->error->message;
-            } else {
-                $responseObj->{'response_message'} = '';
             }
             $responseObj->{'address'} = isset($body->address) ? $body->address : '';
         }
@@ -101,6 +101,8 @@ class Blockonomics
         $response = $this->get($url);
         if (!isset($responseObj)) $responseObj = new stdClass();
         $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
+        $responseObj->{'response_message'} = '';
+        $responseObj->{'price'} = '';
         if (wp_remote_retrieve_body($response)) {
             $body = json_decode(wp_remote_retrieve_body($response));
             // Check if api response is {"price":null} which indicates unsupported currency
@@ -109,7 +111,6 @@ class Blockonomics
                     __('Currency %s is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
                     $currency
                 );
-                $responseObj->{'price'} = '';
             } else {
                 $responseObj->{'response_message'} = isset($body->message) ? $body->message : '';
                 $responseObj->{'price'} = isset($body->price) ? $body->price : '';
