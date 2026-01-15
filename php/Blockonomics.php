@@ -1097,6 +1097,10 @@ class Blockonomics
     // Get the order info by id and crypto
     public function get_order_amount_info($order_id, $crypto){
         $order = $this->process_order($order_id, $crypto);
+        if (array_key_exists('error', $order)) {
+            header("Content-Type: application/json");
+            exit(json_encode(array("error" => $order['error'])));
+        }
         $order_amount = $this->fix_displaying_small_values($crypto, $order['expected_satoshi']);        
         $cryptos = $this->getSupportedCurrencies();
         $crypto_obj = $cryptos[$crypto];
