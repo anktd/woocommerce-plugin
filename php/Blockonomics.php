@@ -321,24 +321,28 @@ class Blockonomics
      *
      * @param array $stores List of stores from Blockonomics API
      * @param string $callback_url The callback URL to match
-     * @return object|null Returns matching store or null if not found
+     * @return array [
+     *   'store' => object|null,
+     *   'match_type' => 'exact'|'partial'|'empty'|'none',
+     *   'duplicate_count' => int  // Number of duplicate stores found
+     * ]
      */
     private function findMatchingStore($stores, $callback_url)
     {
-        $partial_match_result = null;
-        $empty_callback_result = null;
+        $exact_matches = [];
+        $partial_matches = [];
+        $empty_callback_matches = [];
 
         foreach ($stores as $store) {
             // Exact match
             if ($store->http_callback === $callback_url) {
-                return ['store' => $store, 'match_type' => 'exact'];
+                $exact_matches[] = $store;
+                continue;
             }
             
             // Store without callback
             if (empty($store->http_callback)) {
-                if (!$empty_callback_result) { // Keep the first empty one found
-                    $empty_callback_result = ['store' => $store, 'match_type' => 'empty'];
-                }
+                $empty_callback_matches[] = $store;
                 continue;
             }
 
@@ -351,20 +355,85 @@ class Blockonomics
             $target_base_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $target_base_url);
 
             if ($store_base_url === $target_base_url) {
-                 if (!$partial_match_result) { // Keep the first partial one found
-                    $partial_match_result = ['store' => $store, 'match_type' => 'partial'];
-                }
+                $partial_matches[] = $store;
             }
         }
 
-        // Return best available match in order of preference: partial > empty > none
-        if ($partial_match_result) {
-            return $partial_match_result;
-        } elseif ($empty_callback_result) {
-            return $empty_callback_result;
+        // return best available match in this order of preference :=> exact > partial > empty > none
+        if (!empty($exact_matches)) {
+            $best_store = $this->selectBestStore($exact_matches);
+            return [
+                'store' => $best_store,
+                'match_type' => 'exact',
+                'duplicate_count' => count($exact_matches) - 1
+            ];
+        } elseif (!empty($partial_matches)) {
+            $best_store = $this->selectBestStore($partial_matches);
+            return [
+                'store' => $best_store,
+                'match_type' => 'partial',
+                'duplicate_count' => count($partial_matches) - 1
+            ];
+        } elseif (!empty($empty_callback_matches)) {
+            $best_store = $this->selectBestStore($empty_callback_matches);
+            return [
+                'store' => $best_store,
+                'match_type' => 'empty',
+                'duplicate_count' => count($empty_callback_matches) - 1
+            ];
         } else {
-            return ['store' => null, 'match_type' => 'none'];
+            return ['store' => null, 'match_type' => 'none', 'duplicate_count' => 0];
         }
+    }
+
+    /**
+     * Select the best store from a list of candidates
+     * @param array $stores List of store objects
+     * @return object Best store from the list
+     */
+    private function selectBestStore($stores)
+    {
+        if (count($stores) === 1) {
+            return $stores[0];
+        }
+
+        $best_store = $stores[0];
+        $best_score = $this->scoreStore($stores[0]);
+
+        for ($i = 1; $i < count($stores); $i++) {
+            $score = $this->scoreStore($stores[$i]);
+            if ($score > $best_score) {
+                $best_score = $score;
+                $best_store = $stores[$i];
+            }
+        }
+
+        return $best_store;
+    }
+
+    /**
+     * Score a store for selection priority. This is when user creates multiple store with exact same callback url
+     * Scoring:
+     * - Has wallets/crypto: +10 (critical for checkout)
+     * - Has non-empty name: +1 (tie-breaker for display purposes only, also empty name signifies double click during setup wizard or browser back/forward button pressed quickly)
+     * Note: Name is only a tie-breaker. If only one store matches, it's used regardless of whether it has a name. The crypto check is what matters for functionality.
+     * @param object $store Store object with wallets and name properties
+     * @return int Score value
+     */
+    private function scoreStore($store)
+    {
+        $score = 0;
+        // Has crypto/wallets enabled: +10 (most imp factor as this leads to checkout working w/o issue)
+        if (!empty($store->wallets)) {
+            $score += 10;
+        }
+        // Has a non-empty name: +1 (tie-breaker only, for better display in admin)
+        // API returns empty string for nameless stores
+        $name = trim($store->name ?? '');
+            if (!empty($name)) {
+            $score += 1;
+        }
+        return $score;
     }
 
     /**
@@ -480,12 +549,34 @@ class Blockonomics
 
         $enabled_cryptos = $this->getStoreEnabledCryptos($matching_store);
         if (empty($enabled_cryptos)) {
-            return $this->setup_error(__('Please enable Payment method on <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Stores</i></a>', 'blockonomics-bitcoin-payments'));
+            // if no crypto enabled on store, show error msg
+            // with store name: Please enable Payment method on your store MySampleStoreName
+            // empty store name: Please enable Payment method on Stores
+            if (!empty($matching_store->name)){
+                $error_msg = sprintf(
+                    __('Please enable Payment method on your store <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>%s</i></a>', 'blockonomics-bitcoin-payments'),
+                    esc_html($matching_store->name)
+                );
+            } else{
+                $error_msg = __('Please enable Payment method on <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Stores</i></a>', 'blockonomics-bitcoin-payments');
+            }
+            return $this->setup_error($error_msg);
         }
 
         $this->saveBlockonomicsEnabledCryptos($enabled_cryptos);
 
-        return $this->test_cryptos($enabled_cryptos);
+        $result = $this->test_cryptos($enabled_cryptos);
+        $duplicate_count = isset($match_result['duplicate_count']) ? $match_result['duplicate_count'] : 0;
+        if ($duplicate_count > 0) {
+            $store_name = !empty($matching_store->name) ? $matching_store->name : __('(unnamed)', 'blockonomics-bitcoin-payments');
+            $notice = sprintf(
+                __('Note: Found %d duplicate store(s) with matching callback URL. Using "%s" which has payments enabled. You may want to remove unused stores from your <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Blockonomics dashboard</a>.', 'blockonomics-bitcoin-payments'),
+                $duplicate_count,
+                esc_html($store_name)
+            );
+            $result['duplicate_notice'] = $notice;
+        }
+        return $result;
     }
 
     private function setup_error($msg) {
