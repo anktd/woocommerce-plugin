@@ -766,8 +766,9 @@ class Blockonomics
         $order['currency'] = get_woocommerce_currency();
         if (get_woocommerce_currency() != 'BTC') {
             $responseObj = $this->get_price($order['currency'], $order['crypto']);
-            if($responseObj->response_code != 200) {
-                exit();
+            if ($responseObj->response_code != 200 || empty($responseObj->price)) {
+                $error_msg = !empty($responseObj->response_message) ? $responseObj->response_message : __('Could not get price', 'blockonomics-bitcoin-payments');
+                return array("error" => $error_msg);
             }
             $price = $responseObj->price;
             $margin = floatval(get_option('blockonomics_margin', 0));
