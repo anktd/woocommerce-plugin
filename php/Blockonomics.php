@@ -483,7 +483,7 @@ class Blockonomics
         $body = wp_remote_retrieve_body($response);
         $response_data = json_decode($body);
 
-        if (!$response_data || empty($response_data->data)) {
+        if (!$response_data || !isset($response_data->data)) {
             return ['error' => __('Invalid response was received. Please retry.', 'blockonomics-bitcoin-payments')];
         }
 
@@ -506,6 +506,10 @@ class Blockonomics
 
     public function testSetup()
     {
+        // just clear these first, they will only be set again on success
+        delete_option("blockonomics_store_name");
+        delete_option("blockonomics_enabled_cryptos");
+
         $api_key = $this->get_api_key();
 
         if (empty($api_key)) {
