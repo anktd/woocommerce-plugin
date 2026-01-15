@@ -48,7 +48,7 @@ const blockonomicsPaymentMethod = {
 	canMakePayment,
 	ariaLabel: label,
 	icons: getIcons(),
-	placeOrderButtonLabel: __( 'Pay with Bitcoin', 'blockonomics-bitcoin-payments' )
+	placeOrderButtonLabel: __( 'Pay with Crypto', 'blockonomics-bitcoin-payments' )
 }
 
 registerPaymentMethod( blockonomicsPaymentMethod );
