@@ -138,6 +138,47 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals($expectedCurrencies, $actualCurrencies, "The getSupportedCurrencies method did not return the expected array of cryptocurrencies.");
     }
 
+    // this test checks the fix for wpml compatibility - ensures callback are normalised and regex is correct
+    public function testWpmlLanguagePrefixRegex() {
+        $pattern = '#/[a-z]{2}(-[a-z]{2})?/wc-api/#i';
+        $replacement = '/wc-api/';
+
+        //strip 2-letter language codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /de/ prefix"
+        );
+
+        //strip language + region codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/en-us/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /en-us/ prefix"
+        );
+
+        // DO NOT strip 3-letter codes
+        $this->assertEquals(
+            'example.com/deu/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/deu/wc-api/WC_Gateway_Blockonomics/'),
+            "Should NOT strip /deu/ (3-letter code)"
+        );
+
+        // check if it work with subdirectory installs
+        $this->assertEquals(
+            'example.com/shop/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/shop/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should handle subdirectory installs"
+        );
+
+        //this should leave url without prefix unchanged
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/wc-api/WC_Gateway_Blockonomics/'),
+            "Should not modify URLs without language prefix"
+        );
+    }
+
     public function testIconsGenerationWithErrorResponse() {
         $active_cryptos = ['error' => 'API Key is not set. Please enter your API Key.'];
         $icons_src = [];
@@ -232,6 +273,47 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals('USDT', $icons_src['usdt']['alt']);
     }
 
+
+        // this test checks the fix for wpml compatibility - ensures callback are normalised and regex is correct
+    public function testWpmlLanguagePrefixRegex() {
+        $pattern = '#/[a-z]{2}(-[a-z]{2})?/wc-api/#i';
+        $replacement = '/wc-api/';
+
+        //strip 2-letter language codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /de/ prefix"
+        );
+
+        //strip language + region codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/en-us/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /en-us/ prefix"
+        );
+
+        // DO NOT strip 3-letter codes
+        $this->assertEquals(
+            'example.com/deu/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/deu/wc-api/WC_Gateway_Blockonomics/'),
+            "Should NOT strip /deu/ (3-letter code)"
+        );
+
+        // check if it work with subdirectory installs
+        $this->assertEquals(
+            'example.com/shop/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/shop/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should handle subdirectory installs"
+        );
+
+        //this should leave url without prefix unchanged
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/wc-api/WC_Gateway_Blockonomics/'),
+            "Should not modify URLs without language prefix"
+        );
+    }
 
     protected function tearDown(): void {
         wp::tearDown();
