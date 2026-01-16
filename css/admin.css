@@ -75,3 +75,10 @@
         height: auto;
     }
 }
+
+/* responsive notice styling */
+.bnomics-options-margin-top .notice {
+    max-width: 100%;
+    box-sizing: border-box;
+    word-wrap: break-word;
+}

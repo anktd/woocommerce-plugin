@@ -14,7 +14,7 @@ class FormFields {
         if ($store_name) {
             $subtitle = $store_name;
         } else {
-            $subtitle = __('<br>', 'blockonomics-bitcoin-payments');
+            $subtitle = '';
         }
 
         $form_fields = array(

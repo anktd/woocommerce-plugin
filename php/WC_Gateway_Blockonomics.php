@@ -249,10 +249,10 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
                 <div class="bnomics-options-margin-top">
                         <div>
                             <?php
-                                echo '<p class="notice notice-success" style="display:none;width:400px;">';
+                                echo '<p class="notice notice-success" style="display:none;">';
                                 echo '<span class="successText"></span><br />';
                                 echo '</p>';
-                                echo '<p class="notice notice-error" style="width:400px;display:none;">';
+                                echo '<p class="notice notice-error" style="display:none;">';
                                 echo '<span class="errorText"></span><br />';
                                 echo '</p>';
                             ?>
