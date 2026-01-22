@@ -23,6 +23,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $blockonomics = new Blockonomics;
         $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
+        // control icon size in WooCommerce checkout payment method list, file is 100x100 we want 36x36
+        add_filter('woocommerce_gateway_icon', array($this, 'resize_payment_icon'), 10, 2);
+
         $this->has_fields        = false;
         $this->order_button_text = __('Pay with crypto', 'blockonomics-bitcoin-payments');
     
@@ -58,6 +61,19 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         );
     }
 
+    /* Resize the payment gateway icon in WooCommerce checkout.
+     *
+     * @param string $icon_html The icon HTML.
+     * @param string $gateway_id The gateway ID.
+     * @return string Modified icon HTML with max-height style.
+     */
+    public function resize_payment_icon($icon_html, $gateway_id) {
+        if ($gateway_id === $this->id) {
+            // 36x36 looks good enough
+            $icon_html = str_replace('<img', '<img style="max-height:36px;width:auto;"', $icon_html);
+        }
+        return $icon_html;
+    }
 
     public function init_form_fields() {
         require_once 'form_fields.php';
