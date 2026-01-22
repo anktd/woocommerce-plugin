@@ -99,13 +99,10 @@ svg {
   font-variant: normal;
   text-transform: none;
   line-height: 1;
-  font-size: 2em;
-  width: 15%;
-  min-width: 40px;
-  display: block;
+  font-size: 1.75em;
+  flex-shrink: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  float: left;
 }
 
 .bnomics-icon-bch:before {
@@ -123,33 +120,55 @@ svg {
 .bnomics-select-options {
   cursor: pointer;
   width: 100%;
-  display: block;
-  height: 4.2em;
-  margin-bottom: 10px !important;
-  box-shadow: 0 4px 8px 0;
-  transition: 0.3s;
-  text-align: center !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  margin-bottom: 12px !important;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
   word-break: break-word;
 }
 
 .bnomics-select-options:hover {
-  box-shadow: 0 8px 16px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .bnomics-select-container {
-  /*padding-top is the space above crypto options on the select crypto page*/
-  padding-top: 10vh;
+  padding-top: 20px;
   text-align: center;
   max-width: 400px;
   margin: auto;
 }
 
-.bnomics-select-container table {
-  border-collapse: separate;
-  border-spacing: 10px 0px;
-  border: none;
+.bnomics-select-container a {
+  text-decoration: none;
 }
 
+.bnomics-powered-by {
+  margin-top: 20px;
+  font-size: 11px;
+  color: #8898aa;
+  letter-spacing: 0.3px;
+}
+
+.bnomics-powered-by a {
+  color: #8898aa;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.bnomics-powered-by a:hover {
+  color: #525f7f;
+}
+
+.bnomics-powered-by .bnomics-brand {
+  font-weight: 600;
+}
 
 /* ---- Spinner ---- */
 .bnomics-spinner-wrapper {
