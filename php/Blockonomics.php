@@ -1041,10 +1041,22 @@ class Blockonomics
     public function update_order($order){
         global $wpdb;
         $table_name = $wpdb->prefix . 'blockonomics_payments';
-        $wpdb->replace( 
-            $table_name, 
-            $order 
-        );
+
+        if (strtolower($order['crypto']) === 'usdt') {
+          $where = array(
+              'order_id' => $order['order_id'],
+              'crypto' => $order['crypto'],
+              'txid' => $order['txid']
+          );
+        } else{
+          $where = array(
+              'order_id' => $order['order_id'],
+              'crypto' => $order['crypto'],
+              'address' => $order['address']
+          );
+      }
+
+      $wpdb->update($table_name, $order, $where);
     }
 
     // Check and update the crypto order or create a new order
