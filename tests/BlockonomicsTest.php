@@ -273,6 +273,88 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals('USDT', $icons_src['usdt']['alt']);
     }
 
+    /*
+     * Test: BTC/BCH payments are identified by address to prevent duplicate rows.
+     * Bug context: Primary key is (order_id, crypto, address, txid). When callback sets txid from empty to actual value, using wrong identifier would create duplicate rows instead of updating existing payment.
+     *
+     * @dataProvider btcBchOrderProvider
+     */
+    public function testBtcBchPaymentIdentifiedByAddressNotTxid($order) {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $crypto = strtoupper($order['crypto']);
+        $expectedAddress = $order['address'];
+        $expectedOrderId = $order['order_id'];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) use ($expectedOrderId, $order, $expectedAddress) {
+                    $hasAddress = isset($where['address']) && $where['address'] === $expectedAddress;
+                    $noTxid = !isset($where['txid']);
+                    return $hasAddress && $noTxid
+                        && $where['order_id'] === $expectedOrderId
+                        && $where['crypto'] === $order['crypto'];
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(
+            true,
+            "{$crypto}: Should identify payment by address. Using txid would create duplicate rows when txid changes."
+        );
+    }
+
+    /*
+     * Test: USDT payments are identified by txid (not address) since address is reused.
+     * USDT uses same address for multiple payments, so txid uniquely identifies each payment.
+     */
+    public function testUsdtPaymentIdentifiedByTxidNotAddress() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $order = [
+            'order_id' => 789,
+            'crypto' => 'usdt',
+            'address' => '0xSameUSDTAddress',
+            'txid' => 'unique_usdt_txhash',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 200,
+            'expected_satoshi' => 200000000
+        ];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) {
+                    $hasTxid = isset($where['txid']) && $where['txid'] === 'unique_usdt_txhash';
+                    $noAddress = !isset($where['address']);
+                    return $hasTxid && $noAddress
+                        && $where['order_id'] === 789
+                        && $where['crypto'] === 'usdt';
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(
+            true,
+            "USDT: Should identify payment by txid. Address is reused across payments."
+        );
+    }
 
     protected function tearDown(): void {
         wp::tearDown();
