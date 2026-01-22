@@ -273,32 +273,39 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals('USDT', $icons_src['usdt']['alt']);
     }
 
-    /*
-     * Test: BTC/BCH payments are identified by address to prevent duplicate rows.
-     * Bug context: Primary key is (order_id, crypto, address, txid). When callback sets txid from empty to actual value, using wrong identifier would create duplicate rows instead of updating existing payment.
+    /**
+     * Test: BTC payments are identified by address to prevent duplicate rows.
      *
-     * @dataProvider btcBchOrderProvider
+     * Bug context: Primary key is (order_id, crypto, address, txid). When callback
+     * sets txid from empty to actual value, using wrong identifier would create
+     * duplicate rows instead of updating existing payment.
      */
-    public function testBtcBchPaymentIdentifiedByAddressNotTxid($order) {
+    public function testBtcPaymentIdentifiedByAddressNotTxid() {
         global $wpdb;
         $wpdb = m::mock('wpdb');
         $wpdb->prefix = 'wp_';
 
-        $crypto = strtoupper($order['crypto']);
-        $expectedAddress = $order['address'];
-        $expectedOrderId = $order['order_id'];
+        $order = [
+            'order_id' => 123,
+            'crypto' => 'btc',
+            'address' => 'bc1qtest123address',
+            'txid' => 'new_txid_value',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 100,
+            'expected_satoshi' => 100000
+        ];
 
         $wpdb->shouldReceive('update')
             ->once()
             ->with(
                 'wp_blockonomics_payments',
                 $order,
-                m::on(function($where) use ($expectedOrderId, $order, $expectedAddress) {
-                    $hasAddress = isset($where['address']) && $where['address'] === $expectedAddress;
-                    $noTxid = !isset($where['txid']);
-                    return $hasAddress && $noTxid
-                        && $where['order_id'] === $expectedOrderId
-                        && $where['crypto'] === $order['crypto'];
+                m::on(function($where) {
+                    return isset($where['address']) && $where['address'] === 'bc1qtest123address'
+                        && !isset($where['txid'])
+                        && $where['order_id'] === 123
+                        && $where['crypto'] === 'btc';
                 })
             );
 
@@ -306,14 +313,51 @@ class BlockonomicsTest extends TestCase {
         $blockonomics->update_order($order);
 
         m::close();
-        $this->assertTrue(
-            true,
-            "{$crypto}: Should identify payment by address. Using txid would create duplicate rows when txid changes."
-        );
+        $this->assertTrue(true, "BTC: Should identify payment by address, not txid");
     }
 
-    /*
-     * Test: USDT payments are identified by txid (not address) since address is reused.
+    /**
+     * Test: BCH payments are identified by address to prevent duplicate rows.
+     * Same logic as BTC - each BCH address is unique per payment.
+     */
+    public function testBchPaymentIdentifiedByAddressNotTxid() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $order = [
+            'order_id' => 456,
+            'crypto' => 'bch',
+            'address' => 'bitcoincash:qtest456address',
+            'txid' => 'bch_txid_value',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 50,
+            'expected_satoshi' => 50000
+        ];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) {
+                    return isset($where['address']) && $where['address'] === 'bitcoincash:qtest456address'
+                        && !isset($where['txid'])
+                        && $where['order_id'] === 456
+                        && $where['crypto'] === 'bch';
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(true, "BCH: Should identify payment by address, not txid");
+    }
+
+    /**
+     * Test: USDT payments are identified by txid since address is reused.
      * USDT uses same address for multiple payments, so txid uniquely identifies each payment.
      */
     public function testUsdtPaymentIdentifiedByTxidNotAddress() {
@@ -338,9 +382,8 @@ class BlockonomicsTest extends TestCase {
                 'wp_blockonomics_payments',
                 $order,
                 m::on(function($where) {
-                    $hasTxid = isset($where['txid']) && $where['txid'] === 'unique_usdt_txhash';
-                    $noAddress = !isset($where['address']);
-                    return $hasTxid && $noAddress
+                    return isset($where['txid']) && $where['txid'] === 'unique_usdt_txhash'
+                        && !isset($where['address'])
                         && $where['order_id'] === 789
                         && $where['crypto'] === 'usdt';
                 })
@@ -350,10 +393,7 @@ class BlockonomicsTest extends TestCase {
         $blockonomics->update_order($order);
 
         m::close();
-        $this->assertTrue(
-            true,
-            "USDT: Should identify payment by txid. Address is reused across payments."
-        );
+        $this->assertTrue(true, "USDT: Should identify payment by txid, not address");
     }
 
     protected function tearDown(): void {
