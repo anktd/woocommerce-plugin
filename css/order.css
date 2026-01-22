@@ -488,11 +488,9 @@ svg {
   margin-bottom: 8px;
 }
 
-.scan-title{
+.scan-title,
+.copy-title {
   text-align: center;
-}
-.copy-title{
-  text-align: left;
 }
 
 .bnomics-address,
