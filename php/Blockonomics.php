@@ -833,6 +833,14 @@ class Blockonomics
                 __('Currency %s selected on this store is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
                 get_woocommerce_currency()
             );
+        } else if ($error_type == 'bch_no_wallet') {
+            // BCH wallet not configured on bch.blockonomics.co
+            $context['error_title'] = __('Could not generate new address (This may be a temporary error. Please try again)', 'blockonomics-bitcoin-payments');
+            $context['error_msg'] = __('If this continues, please ask website administrator to do following:<br/><ul><li><strong>Administrator action required:</strong> Please add a BCH wallet on <a href="https://bch.blockonomics.co/merchants#/page3" target="_blank">bch.blockonomics.co</a></li><li>Check blockonomics registered email address for error messages</li></ul>', 'blockonomics-bitcoin-payments');
+        } else if ($error_type == 'bch_callback_mismatch') {
+            // BCH callback URL mismatch
+            $context['error_title'] = __('Could not generate new address (This may be a temporary error. Please try again)', 'blockonomics-bitcoin-payments');
+            $context['error_msg'] = __('If this continues, please ask website administrator to do following:<br/><ul><li><strong>Administrator action required:</strong> Please ensure callback URL on <a href="https://bch.blockonomics.co/merchants#/page3" target="_blank">bch.blockonomics.co</a> matches the one in plugin Advanced Settings</li><li>Check blockonomics registered email address for error messages</li></ul>', 'blockonomics-bitcoin-payments');
         } else if ($error_type == 'generic') {
             // Show Generic Error to Client
             $context['error_title'] = __('Could not generate new address (This may be a temporary error. Please try again)', 'blockonomics-bitcoin-payments');
@@ -878,6 +886,12 @@ class Blockonomics
             // Check if this is a currency error
             if (strpos($order['error'], 'Currency') === 0) {
                 $error_context = $this->get_error_context('currency');
+            } else if (strpos($order['error'], 'add an xpub') !== false) {
+                // BCH wallet not configured
+                $error_context = $this->get_error_context('bch_no_wallet');
+            } else if (strpos($order['error'], 'Could not find matching xpub') !== false) {
+                // BCH callback URL mismatch
+                $error_context = $this->get_error_context('bch_callback_mismatch');
             } else {
                 // All other errors use generic error handling
                 $error_context = $this->get_error_context('generic');
