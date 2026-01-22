@@ -60,6 +60,11 @@
                 <table class="blockonomics_checkout_table">
                     <tr>
                         <td>
+                            <noscript>
+                                <div id="address-error-message">
+                                    <p><?= __('USDT requires JavaScript. Please enable JavaScript or use a different browser.', 'blockonomics-bitcoin-payments') ?></p>
+                                </div>
+                            </noscript>
                             <web3-payment
                                 order_amount=<?php echo $order['expected_satoshi']/1e6; ?>
                                 receive_address=<?php echo $order['address']; ?>

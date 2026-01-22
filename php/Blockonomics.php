@@ -923,7 +923,8 @@ class Blockonomics
                 }
                 $context['crypto_rate_str'] = $this->get_crypto_rate_from_params($context['crypto']['code'], $order['expected_fiat'], $order['expected_satoshi']);
                 //Using svg library qrcode.php to generate QR Code in NoJS mode
-                if($this->is_nojs_active()){
+                // only generate QR if payment_uri exists (USDT doesn't use payment_uri)
+                if($this->is_nojs_active() && isset($context['payment_uri'])){
                     $context['qrcode_svg_element'] = $this->generate_qrcode_svg_element($context['payment_uri']);
                 }
 
