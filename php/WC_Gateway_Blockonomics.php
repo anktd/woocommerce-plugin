@@ -347,14 +347,6 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
     public function process_admin_options()
     {
-        // Enqueue scripts and localize data
-        wp_enqueue_script('blockonomics-admin', plugins_url('js/admin.js', dirname(__FILE__)), array('jquery'), '1.0');
-        wp_localize_script('blockonomics-admin', 'blockonomics_params', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'enabled_cryptos' => get_option('blockonomics_enabled_cryptos', 'btc'),
-            'plugin_url' => plugins_url('', dirname(__FILE__))
-        ));
-
         if (!parent::process_admin_options()) {
             return false;
         }
