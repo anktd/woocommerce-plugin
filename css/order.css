@@ -120,39 +120,10 @@ svg {
 }
 
 /* ----- Select Crypto Styles ------*/
-@font-face {
-  font-family: 'cryptos';
-  src: url('../fonts/cryptos.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: block;
-}
-
-[class^='bnomics-icon-'],
-[class*=' bnomics-icon-'] {
-  font-family: 'cryptos' !important;
-  speak: never;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  font-size: 1.75em;
+.bnomics-crypto-icon {
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.bnomics-icon-bch:before {
-  content: '\e900';
-}
-
-.bnomics-icon-btc:before {
-  content: '\e901';
-}
-
-.bnomics-icon-usdt:before {
-  content: "\e902";
 }
 
 .bnomics-select-options {
@@ -185,27 +156,6 @@ svg {
 
 .bnomics-select-container a {
   text-decoration: none;
-}
-
-.bnomics-powered-by {
-  margin-top: 20px;
-  font-size: 11px;
-  color: #8898aa;
-  letter-spacing: 0.3px;
-}
-
-.bnomics-powered-by a {
-  color: #8898aa;
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.bnomics-powered-by a:hover {
-  color: #525f7f;
-}
-
-.bnomics-powered-by .bnomics-brand {
-  font-weight: 600;
 }
 
 /* ---- Spinner ---- */

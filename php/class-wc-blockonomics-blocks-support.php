@@ -65,7 +65,7 @@ final class WC_Blockonomics_Blocks_Support extends AbstractPaymentMethodType {
 
 		foreach ($active_cryptos as $code => $crypto) {
 			$icons_src[$crypto['code']] = [
-				'src' => plugins_url('../img/'.$crypto['code'].'.png', __FILE__),
+				'src' => plugins_url('../img/'.$crypto['code'].'.svg', __FILE__),
 				'alt' => $crypto['name'],
 			];
 		}

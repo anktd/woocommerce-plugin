@@ -12,17 +12,12 @@ $order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>
     ?>
       <a href="<?php echo $order_url;?>">
         <button class="bnomics-select-options woocommerce-button button">
-          <span class="bnomics-icon-<?php echo $code;?>"></span>
+          <img class="bnomics-crypto-icon" src="<?php echo plugins_url('../img/' . $code . '.svg', __FILE__); ?>" alt="<?php echo $crypto['name']; ?>">
           <span><?=__('Pay with', 'blockonomics-bitcoin-payments')?> <?php echo $crypto['name'];?></span>
         </button>
       </a>
     <?php
     }
     ?>
-    <div class="bnomics-powered-by">
-      <a href="https://www.blockonomics.co" target="_blank" rel="noopener">
-        <?=__('Powered by', 'blockonomics-bitcoin-payments')?> <span class="bnomics-brand">Blockonomics</span>
-      </a>
-    </div>
   </div>
 </div>
