@@ -104,7 +104,7 @@ class FormFields {
             'type' => 'checkbox',
             'subtitle' => __('No Javascript checkout page', 'blockonomics-bitcoin-payments'),
             'label' => __('Enable this if you have majority customer that uses tor like browser that blocks JS', 'blockonomics-bitcoin-payments'),
-            'description' => __('Note: USDT payments require JavaScript and will not work with this option enabled.', 'blockonomics-bitcoin-payments'),
+            'description' => __('Note: Customers paying with USDT must have JavaScript enabled.', 'blockonomics-bitcoin-payments'),
             'default' => get_option('blockonomics_nojs') == 1 ? 'yes' : 'no',
         );
         $form_fields['partial_payment'] = array(
