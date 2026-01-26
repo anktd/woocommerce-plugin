@@ -240,12 +240,7 @@ class Blockonomics
             )
         );
 
-        if(is_wp_error( $response )){
-           $error_message = $response->get_error_message();
-           echo __('Something went wrong', 'blockonomics-bitcoin-payments').': '.$error_message;
-        }else{
-            return $response;
-        }
+        return $response;
     }
 
     private function post($url, $api_key = '', $body = '', $timeout = '')
@@ -262,12 +257,7 @@ class Blockonomics
         }
         
         $response = wp_remote_post( $url, $data );
-        if(is_wp_error( $response )){
-           $error_message = $response->get_error_message();
-           echo __('Something went wrong', 'blockonomics-bitcoin-payments').': '.$error_message;
-        }else{
-            return $response;
-        }
+        return $response;
     }
 
     private function set_headers($api_key)
@@ -445,7 +435,10 @@ class Blockonomics
      */
     private function check_api_response_error($response)
     {
-        if (!$response || is_wp_error($response)) {
+        if (is_wp_error($response)) {
+            return __('Something went wrong', 'blockonomics-bitcoin-payments') . ': ' . $response->get_error_message();
+        }
+        if (!$response) {
             return __('Your server is blocking outgoing HTTPS calls', 'blockonomics-bitcoin-payments');
         }
 
