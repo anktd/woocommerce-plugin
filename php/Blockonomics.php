@@ -563,10 +563,7 @@ class Blockonomics
 
         $this->saveBlockonomicsEnabledCryptos($enabled_cryptos);
 
-        // Test ALL main cryptos (btc, usdt) on TestSetup to show full picture.
-        // merchant will see whats configured / what's not. Cache only configured crypto
-        $all_main_cryptos = ['btc','usdt'];
-        $result = $this->test_cryptos($all_main_cryptos);
+        $result = $this->test_cryptos($enabled_cryptos);
         $duplicate_count = isset($match_result['duplicate_count']) ? $match_result['duplicate_count'] : 0;
         if ($duplicate_count > 0) {
             $store_name = !empty($matching_store->name) ? $matching_store->name : __('(unnamed)', 'blockonomics-bitcoin-payments');
