@@ -187,6 +187,30 @@ class Blockonomics
         return $checkout_currencies;
     }
 
+    /* Get cached active currencies from wp_options (for checkout display)
+     * Uses value saved during Test Setup - no more stores API call
+     */
+    public function getCachedActiveCurrencies() {
+        $cached_cryptos = get_option("blockonomics_enabled_cryptos", "");
+        $supported_currencies = $this->getSupportedCurrencies();
+        $checkout_currencies = [];
+        if (!empty($cached_cryptos)) {
+            $crypto_codes = explode(',', $cached_cryptos);
+            foreach ($crypto_codes as $code) {
+                $code = trim(strtolower($code));
+                if (isset($supported_currencies[$code])) {
+                    $checkout_currencies[$code] = $supported_currencies[$code];
+                }
+            }
+        }
+        //add BCH only if enabled in plugin settings
+        $settings = get_option('woocommerce_blockonomics_settings');
+        if (is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') {
+            $checkout_currencies['bch'] = $supported_currencies['bch'];
+        }
+        return $checkout_currencies;
+    }
+
     /**
      * Fetches stores from Blockonomics API.
      *
@@ -646,7 +670,7 @@ class Blockonomics
 
     // Returns url to redirect the user to during checkout
     public function get_order_checkout_url($order_id){
-        $active_cryptos = $this->getActiveCurrencies();
+        $active_cryptos = $this->getCachedActiveCurrencies();
         $order_hash = $this->encrypt_hash($order_id);
         // handle php error from getActiveCurrencies, when api fails
         if (isset($active_cryptos['error'])) {

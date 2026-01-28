@@ -1,6 +1,6 @@
 <?php
 $blockonomics = new Blockonomics;
-$cryptos = $blockonomics->getActiveCurrencies();
+$cryptos = $blockonomics->getCachedActiveCurrencies();
 $order_id = isset($_REQUEST["select_crypto"]) ? sanitize_text_field(wp_unslash($_REQUEST["select_crypto"])) : "";
 $order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>$order_id))
 ?>
