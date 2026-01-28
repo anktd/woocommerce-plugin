@@ -190,14 +190,24 @@ class BlockonomicsAdmin {
     }
 
     updateMetadata(result) {
-        const apiKeyRow = this.elements.apiKey.closest('tr');
-        const descriptionField = apiKeyRow?.querySelector('.description');
+        // Update store name and crypto icons after successful test setup
+        const storeNameDisplay = document.getElementById('store-name-display');
+        if (storeNameDisplay && result.store_name) {
+            let html = result.store_name;
 
-        if (!descriptionField) return;
+            // Add crypto icons for enabled cryptos
+            if (result.enabled_cryptos && result.enabled_cryptos.length > 0) {
+                const pluginUrl = blockonomics_params.plugin_url || '';
+                result.enabled_cryptos.forEach(code => {
+                    code = code.toLowerCase();
+                    if (['btc', 'usdt'].includes(code)) {
+                        html += ` <img src="${pluginUrl}img/${code}.svg" alt="${code.toUpperCase()}" style="height:18px;vertical-align:middle;margin-left:4px;" title="${code.toUpperCase()}" />`;
+                    }
+                });
+            }
 
-        if (result.metadata_cleared) {
-            descriptionField.textContent = '';
-            this.config.activeCurrencies = ['btc'];
+            storeNameDisplay.querySelector('strong').innerHTML = html;
+            storeNameDisplay.style.display = '';
         }
     }
 

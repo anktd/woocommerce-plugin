@@ -318,13 +318,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
             <td class="forminp">
                 <fieldset>
-                    <?php if ( ! empty( $data['subtitle'] ) ) : ?>
-                        <p style="margin-bottom: 8px;">
-                            <strong>
-                                <?php echo wp_kses_post( $data['subtitle'] ); ?>
-                            </strong>
-                        </p>
-                    <?php endif; ?>
+                    <p id="store-name-display" style="margin-bottom: 8px;<?php echo empty($data['subtitle']) ? 'display:none;' : ''; ?>">
+                        <strong><?php echo wp_kses_post( $data['subtitle'] ); ?></strong>
+                    </p>
                     <?php echo $this->get_description_html( $data ); // WPCS: XSS ok. ?>
                     <legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
                     <input class="input-text regular-input <?php echo esc_attr( $data['class'] ); ?>" type="text" name="<?php echo esc_attr( $field_key ); ?>" id="<?php echo esc_attr( $field_key ); ?>" style="<?php echo esc_attr( $data['css'] ); ?>" value="<?php echo esc_attr( $this->get_option( $key ) ); ?>" placeholder="<?php echo esc_attr( $data['placeholder'] ); ?>" <?php disabled( $data['disabled'], true ); ?> <?php echo $this->get_custom_attribute_html( $data ); // WPCS: XSS ok. ?> />

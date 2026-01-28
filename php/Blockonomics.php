@@ -577,6 +577,10 @@ class Blockonomics
             );
             $result['duplicate_notice'] = $notice;
         }
+        // include store info for JS to update UI without page refresh
+        $result['store_name'] = $matching_store->name ?? '';
+        $result['enabled_cryptos'] = $enabled_cryptos;
+
         return $result;
     }
 

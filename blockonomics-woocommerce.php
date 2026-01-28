@@ -127,7 +127,8 @@ function blockonomics_woocommerce_init()
 
             wp_localize_script('blockonomics-admin-scripts', 'blockonomics_params', array(
                 'ajaxurl' => admin_url( 'admin-ajax.php' ),
-                'apikey'  => get_option('blockonomics_api_key')
+                'apikey'  => get_option('blockonomics_api_key'),
+                'plugin_url' => plugins_url('/', __FILE__)
             ));
 
             wp_enqueue_script( 'blockonomics-admin-scripts' );
