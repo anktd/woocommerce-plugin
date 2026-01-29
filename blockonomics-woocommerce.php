@@ -127,7 +127,8 @@ function blockonomics_woocommerce_init()
 
             wp_localize_script('blockonomics-admin-scripts', 'blockonomics_params', array(
                 'ajaxurl' => admin_url( 'admin-ajax.php' ),
-                'apikey'  => get_option('blockonomics_api_key')
+                'apikey'  => get_option('blockonomics_api_key'),
+                'plugin_url' => plugins_url('/', __FILE__)
             ));
 
             wp_enqueue_script( 'blockonomics-admin-scripts' );
@@ -367,6 +368,9 @@ function blockonomics_woocommerce_init()
     {
         $callback_secret = get_option('blockonomics_callback_secret');
         $callback_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+        // strip WPML/Polylang language prefix (i.e. /de/, /en-us/) to ensure consistent callback URL
+        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
+        $callback_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $callback_url);
         $callback_url = add_query_arg('secret', $callback_secret, $callback_url);
         return $callback_url;
     }

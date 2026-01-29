@@ -1,5 +1,43 @@
 /* ----- Checkout Page Styles ------*/
 
+/* ----- Error Message Styles ------*/
+#address-error-message {
+  max-width: 480px;
+  margin: 20px auto;
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-left: 3px solid #6c757d;
+  border-radius: 4px;
+}
+
+#address-error-message h2 {
+  font-size: 15px;
+  font-weight: 500;
+  color: #495057;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+#address-error-message p {
+  font-size: 13px;
+  color: #6c757d;
+  margin: 0;
+  line-height: 1.6;
+}
+
+#address-error-message ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+#address-error-message li {
+  margin-bottom: 6px;
+}
+
+#address-error-message a {
+  color: #0066cc;
+}
+
 .bnomics-qr-block {
   align-items: center;
   justify-content: flex-end;
@@ -82,74 +120,43 @@ svg {
 }
 
 /* ----- Select Crypto Styles ------*/
-@font-face {
-  font-family: 'cryptos';
-  src: url('../fonts/cryptos.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: block;
-}
-
-[class^='bnomics-icon-'],
-[class*=' bnomics-icon-'] {
-  font-family: 'cryptos' !important;
-  speak: never;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  font-size: 2em;
-  width: 15%;
-  min-width: 40px;
-  display: block;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  float: left;
-}
-
-.bnomics-icon-bch:before {
-  content: '\e900';
-}
-
-.bnomics-icon-btc:before {
-  content: '\e901';
-}
-
-.bnomics-icon-usdt:before {
-  content: "\e902";
+.bnomics-crypto-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .bnomics-select-options {
   cursor: pointer;
   width: 100%;
-  display: block;
-  height: 4.2em;
-  margin-bottom: 10px !important;
-  box-shadow: 0 4px 8px 0;
-  transition: 0.3s;
-  text-align: center !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  margin-bottom: 12px !important;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
   word-break: break-word;
 }
 
 .bnomics-select-options:hover {
-  box-shadow: 0 8px 16px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .bnomics-select-container {
-  /*padding-top is the space above crypto options on the select crypto page*/
-  padding-top: 10vh;
+  padding-top: 20px;
   text-align: center;
   max-width: 400px;
   margin: auto;
 }
 
-.bnomics-select-container table {
-  border-collapse: separate;
-  border-spacing: 10px 0px;
-  border: none;
+.bnomics-select-container a {
+  text-decoration: none;
 }
-
 
 /* ---- Spinner ---- */
 .bnomics-spinner-wrapper {
@@ -382,6 +389,21 @@ svg {
   padding: 5px;
   color: currentColor;
   margin: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f9f9f9;
+  font-family: monospace;
+  font-size: 14px;
+  /* min 44px for mobiles */
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+#bnomics-address-input:focus,
+#bnomics-amount-input:focus {
+  outline: none;
+  border-color: #666;
+  background: #fff;
 }
 
 .bnomics-order-address {
@@ -446,11 +468,17 @@ svg {
 }
 
 .scan-title,
-.copy-title { 
-  font-weight: bold;
+.copy-title {
+  font-weight: normal;
   font-size: var(--global--font-size-xs);
-  text-align: left;
-  width:100%;
+  width: 100%;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.scan-title,
+.copy-title {
+  text-align: center;
 }
 
 .bnomics-address,
@@ -508,3 +536,28 @@ svg {
 
 }
 
+/* NoJS checkout styling */
+#blockonomics_checkout.no-js .bnomics-order-panel {
+  text-align: center;
+}
+
+#blockonomics_checkout.no-js .bnomics-qr-code {
+  margin: 20px 0;
+}
+
+#blockonomics_checkout.no-js .bnomics-crypto-price-timer {
+  display: block;
+  color: #666;
+  margin: 15px 0;
+}
+
+#blockonomics_checkout.no-js #bnomics-refresh {
+  margin-top: 10px;
+  padding: 12px 24px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#blockonomics_checkout.no-js a[href=""] {
+  text-decoration: none;
+}

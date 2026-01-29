@@ -14,7 +14,14 @@
  * $qrcode_svg_element: Generate QR Code when NoJS mode is active.
  */
 ?>
-<div id="blockonomics_checkout">
+<div id="blockonomics_checkout"
+    data-time-period="<?php echo esc_attr($context['time_period']); ?>"
+    data-payment-uri="<?php echo esc_attr($payment_uri); ?>"
+    data-crypto-code="<?php echo esc_attr($crypto['code']); ?>"
+    data-crypto-address="<?php echo esc_attr($order['address']); ?>"
+    data-finish-order-url="<?php echo esc_attr($context['finish_order_url']); ?>"
+    data-get-order-amount-url="<?php echo esc_attr($context['get_order_amount_url']); ?>"
+>
     <div class="bnomics-order-container">
 
         <!-- Spinner -->
@@ -91,7 +98,7 @@
                             <div class="bnomics-order-address">
                                 <span class="copy-title">Copy</span>
                                 <div class="bnomics-address">
-                                    <label class="bnomics-address-text"><?= __('Send ', 'blockonomics-bitcoin-payments') ?> <?php echo strtolower($crypto['name']); ?> <?= __('to this address:', 'blockonomics-bitcoin-payments') ?></label>
+                                    <label class="bnomics-address-text"><?= __('Send', 'blockonomics-bitcoin-payments') ?> <?php echo $crypto['name']; ?> <?= __('to this address:', 'blockonomics-bitcoin-payments') ?></label>
                                     <label class="bnomics-copy-address-text"><?= __('Copied to clipboard', 'blockonomics-bitcoin-payments') ?></label>
                                 </div>
 
@@ -100,7 +107,7 @@
                                 </div>
 
                                 <div class="bnomics-amount">
-                                    <label class="bnomics-amount-text"><?= __('Amount of', 'blockonomics-bitcoin-payments') ?> <?php echo strtolower($crypto['name']); ?> (<?php echo strtoupper($crypto['code']); ?>) <?= __('to send:', 'blockonomics-bitcoin-payments') ?></label>
+                                    <label class="bnomics-amount-text"><?= __('Amount of', 'blockonomics-bitcoin-payments') ?> <?php echo strtoupper($crypto['code']); ?> <?= __('to send:', 'blockonomics-bitcoin-payments') ?></label>
                                     <label class="bnomics-copy-amount-text"><?= __('Copied to clipboard', 'blockonomics-bitcoin-payments') ?></label>
                                 </div>
 

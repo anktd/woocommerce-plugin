@@ -138,6 +138,263 @@ class BlockonomicsTest extends TestCase {
         $this->assertEquals($expectedCurrencies, $actualCurrencies, "The getSupportedCurrencies method did not return the expected array of cryptocurrencies.");
     }
 
+    // this test checks the fix for wpml compatibility - ensures callback are normalised and regex is correct
+    public function testWpmlLanguagePrefixRegex() {
+        $pattern = '#/[a-z]{2}(-[a-z]{2})?/wc-api/#i';
+        $replacement = '/wc-api/';
+
+        //strip 2-letter language codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /de/ prefix"
+        );
+
+        //strip language + region codes
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/en-us/wc-api/WC_Gateway_Blockonomics/'),
+            "Should strip /en-us/ prefix"
+        );
+
+        // DO NOT strip 3-letter codes
+        $this->assertEquals(
+            'example.com/deu/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/deu/wc-api/WC_Gateway_Blockonomics/'),
+            "Should NOT strip /deu/ (3-letter code)"
+        );
+
+        // check if it work with subdirectory installs
+        $this->assertEquals(
+            'example.com/shop/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/shop/de/wc-api/WC_Gateway_Blockonomics/'),
+            "Should handle subdirectory installs"
+        );
+
+        //this should leave url without prefix unchanged
+        $this->assertEquals(
+            'example.com/wc-api/WC_Gateway_Blockonomics/',
+            preg_replace($pattern, $replacement, 'example.com/wc-api/WC_Gateway_Blockonomics/'),
+            "Should not modify URLs without language prefix"
+        );
+    }
+
+    public function testIconsGenerationWithErrorResponse() {
+        $active_cryptos = ['error' => 'API Key is not set. Please enter your API Key.'];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            // Should return empty
+            $this->assertEmpty($icons_src, "Icons should be empty when error response received");
+            return;
+        }
+
+        $this->fail('Should have returned early due to error');
+    }
+
+    public function testIconsGenerationWithValidCryptos() {
+        $active_cryptos = [
+            'btc' => ['code' => 'btc', 'name' => 'Bitcoin', 'uri' => 'bitcoin', 'decimals' => 8],
+            'usdt' => ['code' => 'usdt', 'name' => 'USDT', 'decimals' => 6]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid cryptos');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(2, $icons_src, "Should have icons for 2 cryptocurrencies");
+        $this->assertArrayHasKey('btc', $icons_src, "Should have BTC icon");
+        $this->assertArrayHasKey('usdt', $icons_src, "Should have USDT icon");
+        $this->assertEquals('Bitcoin', $icons_src['btc']['alt'], "BTC alt text should be 'Bitcoin'");
+        $this->assertEquals('USDT', $icons_src['usdt']['alt'], "USDT alt text should be 'USDT'");
+    }
+
+    public function testIconsGenerationWithEmptyResponse() {
+        $active_cryptos = [];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->assertEmpty($icons_src, "Icons should be empty when no active cryptos");
+            return;
+        }
+
+        $this->fail('Should have returned early due to empty array');
+    }
+
+    public function testIconsGenerationWithSingleCryptoBTC() {
+        $active_cryptos = [
+            'btc' => ['code' => 'btc', 'name' => 'Bitcoin', 'uri' => 'bitcoin', 'decimals' => 8]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid crypto');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(1, $icons_src, "Should have icon for 1 cryptocurrency");
+        $this->assertArrayHasKey('btc', $icons_src, "Should have BTC icon");
+        $this->assertEquals('Bitcoin', $icons_src['btc']['alt']);
+    }
+
+    public function testIconsGenerationWithSingleCryptoUSDT() {
+        $active_cryptos = [
+            'usdt' => ['code' => 'usdt', 'name' => 'USDT', 'decimals' => 6]
+        ];
+        $icons_src = [];
+
+        if (empty($active_cryptos) || isset($active_cryptos['error'])) {
+            $this->fail('Should not return early for valid crypto');
+        }
+
+        foreach ($active_cryptos as $code => $crypto) {
+            $icons_src[$crypto['code']] = [
+                'src' => 'test/'.$crypto['code'].'.png',
+                'alt' => $crypto['name'],
+            ];
+        }
+
+        $this->assertCount(1, $icons_src, "Should have icon for 1 cryptocurrency");
+        $this->assertArrayHasKey('usdt', $icons_src, "Should have USDT icon");
+        $this->assertEquals('USDT', $icons_src['usdt']['alt']);
+    }
+
+    /**
+     * Test: BTC payments are identified by address to prevent duplicate rows.
+     *
+     * Bug context: Primary key is (order_id, crypto, address, txid). When callback
+     * sets txid from empty to actual value, using wrong identifier would create
+     * duplicate rows instead of updating existing payment.
+     */
+    public function testBtcPaymentIdentifiedByAddressNotTxid() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $order = [
+            'order_id' => 123,
+            'crypto' => 'btc',
+            'address' => 'bc1qtest123address',
+            'txid' => 'new_txid_value',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 100,
+            'expected_satoshi' => 100000
+        ];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) {
+                    return isset($where['address']) && $where['address'] === 'bc1qtest123address'
+                        && !isset($where['txid'])
+                        && $where['order_id'] === 123
+                        && $where['crypto'] === 'btc';
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(true, "BTC: Should identify payment by address, not txid");
+    }
+
+    /**
+     * Test: BCH payments are identified by address to prevent duplicate rows.
+     * Same logic as BTC - each BCH address is unique per payment.
+     */
+    public function testBchPaymentIdentifiedByAddressNotTxid() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $order = [
+            'order_id' => 456,
+            'crypto' => 'bch',
+            'address' => 'bitcoincash:qtest456address',
+            'txid' => 'bch_txid_value',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 50,
+            'expected_satoshi' => 50000
+        ];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) {
+                    return isset($where['address']) && $where['address'] === 'bitcoincash:qtest456address'
+                        && !isset($where['txid'])
+                        && $where['order_id'] === 456
+                        && $where['crypto'] === 'bch';
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(true, "BCH: Should identify payment by address, not txid");
+    }
+
+    /**
+     * Test: USDT payments are identified by txid since address is reused.
+     * USDT uses same address for multiple payments, so txid uniquely identifies each payment.
+     */
+    public function testUsdtPaymentIdentifiedByTxidNotAddress() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $order = [
+            'order_id' => 789,
+            'crypto' => 'usdt',
+            'address' => '0xSameUSDTAddress',
+            'txid' => 'unique_usdt_txhash',
+            'payment_status' => 2,
+            'currency' => 'USD',
+            'expected_fiat' => 200,
+            'expected_satoshi' => 200000000
+        ];
+
+        $wpdb->shouldReceive('update')
+            ->once()
+            ->with(
+                'wp_blockonomics_payments',
+                $order,
+                m::on(function($where) {
+                    return isset($where['txid']) && $where['txid'] === 'unique_usdt_txhash'
+                        && !isset($where['address'])
+                        && $where['order_id'] === 789
+                        && $where['crypto'] === 'usdt';
+                })
+            );
+
+        $blockonomics = new TestableBlockonomics();
+        $blockonomics->update_order($order);
+
+        m::close();
+        $this->assertTrue(true, "USDT: Should identify payment by txid, not address");
+    }
 
     protected function tearDown(): void {
         wp::tearDown();

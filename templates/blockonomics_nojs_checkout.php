@@ -61,7 +61,7 @@
                 <tr>
                     <th>
                         <!-- Order Address -->
-                        <label class="bnomics-address-text"><?=__('To pay, send', 'blockonomics-bitcoin-payments')?> <?php echo strtolower($crypto['name']); ?> <?=__('to this address:', 'blockonomics-bitcoin-payments')?></label>
+                        <label class="bnomics-address-text"><?=__('To pay, send', 'blockonomics-bitcoin-payments')?> <?php echo $crypto['name']; ?> <?=__('to this address:', 'blockonomics-bitcoin-payments')?></label>
                         
                         <div class="bnomics-copy-container">
                           <input type="text" value="<?php echo $order['address']; ?>" id="bnomics-address-input" readonly/>
@@ -84,7 +84,7 @@
             <table>
                 <tr>
                     <th>
-                        <label class="bnomics-amount-text"><?=__('Amount of', 'blockonomics-bitcoin-payments')?> <?php echo strtolower($crypto['name']); ?> (<?php echo strtoupper($crypto['code']); ?>) <?=__('to send:', 'blockonomics-bitcoin-payments')?></label>
+                        <label class="bnomics-amount-text"><?=__('Amount of', 'blockonomics-bitcoin-payments')?> <?php echo strtoupper($crypto['code']); ?> <?=__('to send:', 'blockonomics-bitcoin-payments')?></label>
 
                         <div class="bnomics-copy-container">
                           <input type="text" value="<?php echo $order_amount; ?>" id="bnomics-amount-input" readonly/>

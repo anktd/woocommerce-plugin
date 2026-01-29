@@ -23,6 +23,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $blockonomics = new Blockonomics;
         $this->icon = plugins_url('img', dirname(__FILE__)) . '/logo.png';
 
+        // control icon size in WooCommerce checkout payment method list, file is 100x100 we want 36x36
+        add_filter('woocommerce_gateway_icon', array($this, 'resize_payment_icon'), 10, 2);
+
         $this->has_fields        = false;
         $this->order_button_text = __('Pay with crypto', 'blockonomics-bitcoin-payments');
     
@@ -58,6 +61,19 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         );
     }
 
+    /* Resize the payment gateway icon in WooCommerce checkout.
+     *
+     * @param string $icon_html The icon HTML.
+     * @param string $gateway_id The gateway ID.
+     * @return string Modified icon HTML with max-height style.
+     */
+    public function resize_payment_icon($icon_html, $gateway_id) {
+        if ($gateway_id === $this->id) {
+            // 36x36 looks good enough
+            $icon_html = str_replace('<img', '<img style="max-height:36px;width:auto;"', $icon_html);
+        }
+        return $icon_html;
+    }
 
     public function init_form_fields() {
         require_once 'form_fields.php';
@@ -68,6 +84,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
     {
         $callback_secret = get_option('blockonomics_callback_secret');
         $callback_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+        // strip WPML/Polylang language prefix (i.e. /de/, /en-us/) to ensure consistent callback URL
+        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
+        $callback_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $callback_url);
         $callback_url = add_query_arg('secret', $callback_secret, $callback_url);
         return $callback_url;
     }
@@ -246,10 +265,10 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
                 <div class="bnomics-options-margin-top">
                         <div>
                             <?php
-                                echo '<p class="notice notice-success" style="display:none;width:400px;">';
+                                echo '<p class="notice notice-success" style="display:none;">';
                                 echo '<span class="successText"></span><br />';
                                 echo '</p>';
-                                echo '<p class="notice notice-error" style="width:400px;display:none;">';
+                                echo '<p class="notice notice-error" style="display:none;">';
                                 echo '<span class="errorText"></span><br />';
                                 echo '</p>';
                             ?>
@@ -299,13 +318,9 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
             <td class="forminp">
                 <fieldset>
-                    <?php if ( ! empty( $data['subtitle'] ) ) : ?>
-                        <p style="margin-bottom: 8px;">
-                            <strong>
-                                <?php echo wp_kses_post( $data['subtitle'] ); ?>
-                            </strong>
-                        </p>
-                    <?php endif; ?>
+                    <p id="store-name-display" style="margin-bottom: 8px;<?php echo empty($data['subtitle']) ? 'display:none;' : ''; ?>">
+                        <strong><?php echo wp_kses_post( $data['subtitle'] ); ?></strong>
+                    </p>
                     <?php echo $this->get_description_html( $data ); // WPCS: XSS ok. ?>
                     <legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
                     <input class="input-text regular-input <?php echo esc_attr( $data['class'] ); ?>" type="text" name="<?php echo esc_attr( $field_key ); ?>" id="<?php echo esc_attr( $field_key ); ?>" style="<?php echo esc_attr( $data['css'] ); ?>" value="<?php echo esc_attr( $this->get_option( $key ) ); ?>" placeholder="<?php echo esc_attr( $data['placeholder'] ); ?>" <?php disabled( $data['disabled'], true ); ?> <?php echo $this->get_custom_attribute_html( $data ); // WPCS: XSS ok. ?> />
@@ -328,14 +343,6 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
 
     public function process_admin_options()
     {
-        // Enqueue scripts and localize data
-        wp_enqueue_script('blockonomics-admin', plugins_url('js/admin.js', dirname(__FILE__)), array('jquery'), '1.0');
-        wp_localize_script('blockonomics-admin', 'blockonomics_params', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'enabled_cryptos' => get_option('blockonomics_enabled_cryptos', 'btc'),
-            'plugin_url' => plugins_url('', dirname(__FILE__))
-        ));
-
         if (!parent::process_admin_options()) {
             return false;
         }
