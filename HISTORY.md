@@ -1,5 +1,10 @@
 == Changelog ==
 
+= 3.9.0  =
+* Performance: Improve checkout page load time
+* Test Setup now detects and shows Gap Limit errors
+* Bug fixes and improvements
+
 = 3.8.2  =
 * USDT (ETH ERC-20) payments are now supported
 
