@@ -673,7 +673,7 @@ class Blockonomics
         $active_cryptos = $this->getCachedActiveCurrencies();
         $order_hash = $this->encrypt_hash($order_id);
         // handle php error from getActiveCurrencies, when api fails
-        if (isset($active_cryptos['error'])) {
+        if (!is_array($active_cryptos) || isset($active_cryptos['error'])) {
             return $this->get_parameterized_wc_url('page',array('crypto' => 'empty'));
         }
         // check how many crypto are activate
