@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 3.9.1  =
+* Fixed PHP 8+ fatal error "Cannot access offset of type string on string" in WooCommerce Blocks integration that could crash some production enviroments
+
 = 3.9.0  =
 * Performance: Improve checkout page load time
 * Test Setup now detects and shows Gap Limit errors
