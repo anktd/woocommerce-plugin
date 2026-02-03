@@ -534,11 +534,6 @@ class Blockonomics
             return $this->setup_error(__('API Key is not set. Please enter your API Key.', 'blockonomics-bitcoin-payments'));
         }
 
-        $wallet_result = $this->get_wallets($api_key);
-        if (!empty($wallet_result['error'])) {
-            return $this->setup_error($wallet_result['error']);
-        }
-
         $stores_result = $this->get_stores($api_key);
         if (!empty($stores_result['error'])) {
             return $this->setup_error($stores_result['error']);
