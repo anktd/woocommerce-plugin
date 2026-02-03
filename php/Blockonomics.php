@@ -480,48 +480,6 @@ class Blockonomics
         return false;
     }
 
-    /**
-     * Get the wallets from the API, also checks if API key is valid.
-     *
-     * @param string $api_key Blockonomics API key.
-     * @return array [
-     *   'error' => string,     // Error message if any
-     *   'wallets' => array     // Array of configured wallet currencies
-     * ]
-     */
-    public function get_wallets($api_key)
-    {
-        $response = $this->get(self::WALLETS_URL, $api_key);
-
-        $error = $this->check_api_response_error($response);
-        if ($error) {
-            return ['error' => $error];
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $response_data = json_decode($body);
-
-        if (!$response_data || !isset($response_data->data)) {
-            return ['error' => __('Invalid response was received. Please retry.', 'blockonomics-bitcoin-payments')];
-        }
-
-        $wallets = [];
-        foreach ($response_data->data as $wallet) {
-            if (!empty($wallet->crypto)) {
-                $crypto = strtolower($wallet->crypto);
-                if (!in_array($crypto, $wallets)) {
-                    $wallets[] = $crypto;
-                }
-            }
-        }
-
-        if (empty($wallets)) {
-            return ['error' => __('Please add a <a href="https://www.blockonomics.co/dashboard#/wallet" target="_blank"><i>Wallet</i></a> on Blockonomics Dashboard', 'blockonomics-bitcoin-payments')];
-        }
-
-        return ['wallets' => $wallets];
-    }
-
     public function testSetup()
     {
         // just clear these first, they will only be set again on success
