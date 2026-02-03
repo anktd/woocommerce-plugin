@@ -7,7 +7,6 @@ class Blockonomics
 {
     const BASE_URL = 'https://www.blockonomics.co';
     const STORES_URL = self::BASE_URL . '/api/v2/stores?wallets=true';
-    const WALLETS_URL = self::BASE_URL . '/api/v2/wallets';
 
     const NEW_ADDRESS_URL = self::BASE_URL . '/api/new_address';
     const PRICE_URL = self::BASE_URL . '/api/price';
