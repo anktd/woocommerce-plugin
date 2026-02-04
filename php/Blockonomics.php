@@ -7,7 +7,6 @@ class Blockonomics
 {
     const BASE_URL = 'https://www.blockonomics.co';
     const STORES_URL = self::BASE_URL . '/api/v2/stores?wallets=true';
-    const WALLETS_URL = self::BASE_URL . '/api/v2/wallets';
 
     const NEW_ADDRESS_URL = self::BASE_URL . '/api/new_address';
     const PRICE_URL = self::BASE_URL . '/api/price';
@@ -160,16 +159,14 @@ class Blockonomics
         }
 
         $callback_url = $this->get_callback_url();
-        $match_result = $this->findMatchingStore($stores_result['stores'], $callback_url);
-        $matching_store = $match_result['store'];
-        $match_type = $match_result['match_type'];
+        $matching_store = $this->findExactMatchingStore($stores_result['stores'], $callback_url);
 
         // Result currencies
         $checkout_currencies = [];
         $supported_currencies = $this->getSupportedCurrencies();
 
-        // Add currencies from Blockonomics store
-        if ($match_type === 'exact') {
+        // Add currencies from Blockonomics store if exact match is found
+        if ($matching_store) {
             $blockonomics_enabled = $this->getStoreEnabledCryptos($matching_store);
             foreach ($blockonomics_enabled as $code) {
                 if ($code != 'bch' && isset($supported_currencies[$code])) {
@@ -242,16 +239,6 @@ class Blockonomics
         }
 
         return $result;
-    }
-
-    private function update_store($store_id, $data) {
-        // Ensure we're using the specific store endpoint
-        $url = self::BASE_URL . '/api/v2/stores/' . $store_id;
-        $response = $this->post($url, $this->api_key, wp_json_encode($data), 45);
-        if (wp_remote_retrieve_response_code($response) !== 200) {
-            return __('Could not update store callback', 'blockonomics-bitcoin-payments');
-        }
-        return false;
     }
 
     private function get($url, $api_key = '')
@@ -331,124 +318,23 @@ class Blockonomics
         }
     }
 
-    /**
-     * Find a matching store based on callback URL
+    /* Find store with exact callback URL match, if multiple matches exist, prefers store with wallets attached
      *
-     * @param array $stores List of stores from Blockonomics API
+     * @param array $stores List of stores from API
      * @param string $callback_url The callback URL to match
-     * @return array [
-     *   'store' => object|null,
-     *   'match_type' => 'exact'|'partial'|'empty'|'none',
-     *   'duplicate_count' => int  // Number of duplicate stores found
-     * ]
+     * @return object|null Matching store or null
      */
-    private function findMatchingStore($stores, $callback_url)
-    {
-        $exact_matches = [];
-        $partial_matches = [];
-        $empty_callback_matches = [];
-
+    private function findExactMatchingStore($stores, $callback_url) {
+        $best_store = null;
         foreach ($stores as $store) {
-            // Exact match
             if ($store->http_callback === $callback_url) {
-                $exact_matches[] = $store;
-                continue;
-            }
-            
-            // Store without callback
-            if (empty($store->http_callback)) {
-                $empty_callback_matches[] = $store;
-                continue;
-            }
-
-            // Partial match - only secret or protocol differs
-            $store_base_url = preg_replace(['/https?:\/\//', '/\?.*$/'], '', $store->http_callback);
-            $target_base_url = preg_replace(['/https?:\/\//', '/\?.*$/'], '', $callback_url);
-
-            // strip language prefix patterns (/xx/ or /xx-xx/) for WPML/Polylang compatibility
-            $store_base_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $store_base_url);
-            $target_base_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $target_base_url);
-
-            if ($store_base_url === $target_base_url) {
-                $partial_matches[] = $store;
+                // prefer store with wallets (so checkout works)
+                if (!$best_store || (!empty($store->wallets) && empty($best_store->wallets))) {
+                    $best_store = $store;
+                }
             }
         }
-
-        // return best available match in this order of preference :=> exact > partial > empty > none
-        if (!empty($exact_matches)) {
-            $best_store = $this->selectBestStore($exact_matches);
-            return [
-                'store' => $best_store,
-                'match_type' => 'exact',
-                'duplicate_count' => count($exact_matches) - 1
-            ];
-        } elseif (!empty($partial_matches)) {
-            $best_store = $this->selectBestStore($partial_matches);
-            return [
-                'store' => $best_store,
-                'match_type' => 'partial',
-                'duplicate_count' => count($partial_matches) - 1
-            ];
-        } elseif (!empty($empty_callback_matches)) {
-            $best_store = $this->selectBestStore($empty_callback_matches);
-            return [
-                'store' => $best_store,
-                'match_type' => 'empty',
-                'duplicate_count' => count($empty_callback_matches) - 1
-            ];
-        } else {
-            return ['store' => null, 'match_type' => 'none', 'duplicate_count' => 0];
-        }
-    }
-
-    /**
-     * Select the best store from a list of candidates
-     * @param array $stores List of store objects
-     * @return object Best store from the list
-     */
-    private function selectBestStore($stores)
-    {
-        if (count($stores) === 1) {
-            return $stores[0];
-        }
-
-        $best_store = $stores[0];
-        $best_score = $this->scoreStore($stores[0]);
-
-        for ($i = 1; $i < count($stores); $i++) {
-            $score = $this->scoreStore($stores[$i]);
-            if ($score > $best_score) {
-                $best_score = $score;
-                $best_store = $stores[$i];
-            }
-        }
-
         return $best_store;
-    }
-
-    /**
-     * Score a store for selection priority. This is when user creates multiple store with exact same callback url
-     * Scoring:
-     * - Has wallets/crypto: +10 (critical for checkout)
-     * - Has non-empty name: +1 (tie-breaker for display purposes only, also empty name signifies double click during setup wizard or browser back/forward button pressed quickly)
-     * Note: Name is only a tie-breaker. If only one store matches, it's used regardless of whether it has a name. The crypto check is what matters for functionality.
-     * @param object $store Store object with wallets and name properties
-     * @return int Score value
-     */
-    private function scoreStore($store)
-    {
-        $score = 0;
-        // Has crypto/wallets enabled: +10 (most imp factor as this leads to checkout working w/o issue)
-        if (!empty($store->wallets)) {
-            $score += 10;
-        }
-        // Has a non-empty name: +1 (tie-breaker only, for better display in admin)
-        // API returns empty string for nameless stores
-        $name = trim($store->name ?? '');
-            if (!empty($name)) {
-            $score += 1;
-        }
-        return $score;
     }
 
     /**
@@ -480,48 +366,6 @@ class Blockonomics
         return false;
     }
 
-    /**
-     * Get the wallets from the API, also checks if API key is valid.
-     *
-     * @param string $api_key Blockonomics API key.
-     * @return array [
-     *   'error' => string,     // Error message if any
-     *   'wallets' => array     // Array of configured wallet currencies
-     * ]
-     */
-    public function get_wallets($api_key)
-    {
-        $response = $this->get(self::WALLETS_URL, $api_key);
-
-        $error = $this->check_api_response_error($response);
-        if ($error) {
-            return ['error' => $error];
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        $response_data = json_decode($body);
-
-        if (!$response_data || !isset($response_data->data)) {
-            return ['error' => __('Invalid response was received. Please retry.', 'blockonomics-bitcoin-payments')];
-        }
-
-        $wallets = [];
-        foreach ($response_data->data as $wallet) {
-            if (!empty($wallet->crypto)) {
-                $crypto = strtolower($wallet->crypto);
-                if (!in_array($crypto, $wallets)) {
-                    $wallets[] = $crypto;
-                }
-            }
-        }
-
-        if (empty($wallets)) {
-            return ['error' => __('Please add a <a href="https://www.blockonomics.co/dashboard#/wallet" target="_blank"><i>Wallet</i></a> on Blockonomics Dashboard', 'blockonomics-bitcoin-payments')];
-        }
-
-        return ['wallets' => $wallets];
-    }
-
     public function testSetup()
     {
         // just clear these first, they will only be set again on success
@@ -534,37 +378,16 @@ class Blockonomics
             return $this->setup_error(__('API Key is not set. Please enter your API Key.', 'blockonomics-bitcoin-payments'));
         }
 
-        $wallet_result = $this->get_wallets($api_key);
-        if (!empty($wallet_result['error'])) {
-            return $this->setup_error($wallet_result['error']);
-        }
-
         $stores_result = $this->get_stores($api_key);
         if (!empty($stores_result['error'])) {
             return $this->setup_error($stores_result['error']);
         }
 
         $callback_url = $this->get_callback_url();
-        $match_result = $this->findMatchingStore($stores_result['stores'], $callback_url);
-        $matching_store = $match_result['store'];
-        $match_type = $match_result['match_type'];
+        $matching_store = $this->findExactMatchingStore($stores_result['stores'], $callback_url);
 
-        if ($match_type === 'none') {
-            return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank"><i>Store</i></a> on Blockonomics Dashboard', 'blockonomics-bitcoin-payments'));
-        }
-
-        if ($match_type === 'partial') {
-            return $this->setup_error(__('Please copy Callback URL from Advanced Settings and paste it as your <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Store Callback URL</a>', 'blockonomics-bitcoin-payments'));
-        }
-
-        if ($match_type === 'empty') {
-            $update_result = $this->update_store($matching_store->id, [
-                'name' => $matching_store->name,
-                'http_callback' => $callback_url
-            ]);
-            if (!empty($update_result)) {
-                return $this->setup_error($update_result);
-            }
+        if (!$matching_store) {
+            return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">new store</a> with the callback URL shown in advanced settings', 'blockonomics-bitcoin-payments'));
         }
 
         $this->update_store_name_option($matching_store->name);
