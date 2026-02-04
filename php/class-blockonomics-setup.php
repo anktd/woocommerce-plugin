@@ -13,9 +13,6 @@ class Blockonomics_Setup {
     private function get_callback_url() {
         $callback_secret = get_option('blockonomics_callback_secret');
         $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        // strip WPML/Polylang language prefix (i.e. /de/, /en-us/) to ensure consistent callback URL
-        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
-        $api_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $api_url);
         return add_query_arg('secret', $callback_secret, $api_url);
     }
 
@@ -77,8 +74,6 @@ class Blockonomics_Setup {
 
         $wordpress_callback_url = $this->get_callback_url();
         $base_url = preg_replace('/https?:\/\//', '', WC()->api_request_url('WC_Gateway_Blockonomics'));
-        // regex for wpml / polylang compatibility
-        $base_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $base_url);
 
         // if multiple store matches, collect all
         $exact_matches = array();

@@ -84,9 +84,6 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
     {
         $callback_secret = get_option('blockonomics_callback_secret');
         $callback_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        // strip WPML/Polylang language prefix (i.e. /de/, /en-us/) to ensure consistent callback URL
-        // only do this if prefix appears immediately before /wc-api/ to avoid false positives
-        $callback_url = preg_replace('#/[a-z]{2}(-[a-z]{2})?/wc-api/#i', '/wc-api/', $callback_url);
         $callback_url = add_query_arg('secret', $callback_secret, $callback_url);
         return $callback_url;
     }
