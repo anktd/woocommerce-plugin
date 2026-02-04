@@ -386,7 +386,7 @@ class Blockonomics
         $callback_url = $this->get_callback_url();
         $matching_store = $this->findExactMatchingStore($stores_result['stores'], $callback_url);
 
-        if ($matching_store) {
+        if (!$matching_store) {
             return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">new store</a> with the callback URL shown in advanced settings', 'blockonomics-bitcoin-payments'));
         }
 
