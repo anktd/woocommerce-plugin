@@ -280,6 +280,188 @@ class Blockonomics
         return $headers;
     }
 
+    /* Build URL for api/new_address
+     *
+     * @param string $crypto Cryptocurrency code (btc, bch, usdt)
+     * @return string Full URL with query parameters
+     */
+    private function build_new_address_url($crypto)
+    {
+        $secret = get_option("blockonomics_callback_secret");
+        $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
+        $callback_url = add_query_arg('secret', $secret, $api_url);
+
+        $params = array();
+        if ($callback_url) {
+            $params['match_callback'] = $callback_url;
+        }
+        if ($crypto === 'usdt') {
+            $params['crypto'] = "USDT";
+        }
+
+        $url = $crypto === 'bch' ? self::BCH_NEW_ADDRESS_URL : self::NEW_ADDRESS_URL;
+        if (!empty($params)) {
+            $url .= '?' . http_build_query($params);
+        }
+        return $url;
+    }
+
+    /* Build URL for price API call
+     *
+     * @param string $currency Fiat currency code (USD, EUR, etc.)
+     * @param string $crypto Cryptocurrency code (btc, bch, usdt)
+     * @return string Full URL with query parameters
+     */
+    private function build_price_url($currency, $crypto)
+    {
+        if ($crypto === 'bch') {
+            return self::BCH_PRICE_URL . "?currency=$currency";
+        }
+        $crypto_upper = strtoupper($crypto);
+        return self::PRICE_URL . "?currency=$currency&crypto=$crypto_upper";
+    }
+
+    /* Fetch address and price in parallel using WordPress Requests library
+     *
+     * @param string $crypto Cryptocurrency code
+     * @param string $currency Fiat currency code
+     * @return array ['address' => string, 'price' => float] or ['error' => string]
+     */
+    private function fetch_order_data_parallel($crypto, $currency)
+    {
+        $start_time = microtime(true);
+
+        // when woocommerce currency is BTC, price = 1, so only call api/new_address
+        if ($currency === 'BTC') {
+            $address_response = $this->new_address($crypto);
+            $elapsed = round((microtime(true) - $start_time) * 1000);
+            error_log("Blockonomics parallel fetch (BTC currency, address only): {$elapsed}ms");
+            if ($address_response->response_code != 200) {
+                return array('error' => $address_response->response_message);
+            }
+            return array(
+                'address' => $address_response->address,
+                'price' => 1
+            );
+        }
+
+        // build url for both API calls
+        $address_url = $this->build_new_address_url($crypto);
+        $price_url = $this->build_price_url($currency, $crypto);
+
+        // build requests array for Requests::request_multiple()
+        $requests = array(
+            'address' => array(
+                'url' => $address_url,
+                'type' => \WpOrg\Requests\Requests::POST,
+                'headers' => $this->set_headers($this->api_key),
+                'options' => array('timeout' => 8)
+            ),
+            'price' => array(
+                'url' => $price_url,
+                'type' => \WpOrg\Requests\Requests::GET,
+                'headers' => $this->set_headers('')
+            )
+        );
+
+        // parallely process api/price and api/new_address
+        try {
+            $responses = \WpOrg\Requests\Requests::request_multiple($requests);
+        } catch (\Exception $e) {
+            return array('error' => $e->getMessage());
+        }
+        return $this->process_parallel_responses($responses, $currency);
+    }
+
+    /* Process responses from parallel API calls (Requests library format)
+     *
+     * @param array $responses Array of \WpOrg\Requests\Response objects
+     * @param string $currency Fiat currency for error messages
+     * @return array ['address' => string, 'price' => float] or ['error' => string]
+     */
+    private function process_parallel_responses($responses, $currency)
+    {
+        $result = array();
+
+        // Process address response
+        $address_response = $responses['address'];
+        if ($address_response instanceof \WpOrg\Requests\Exception) {
+            return array('error' => $address_response->getMessage());
+        }
+        if ($address_response->status_code != 200) {
+            $body = json_decode($address_response->body);
+            $error_msg = '';
+            if (isset($body->message)) {
+                $error_msg = $body->message;
+            } elseif (isset($body->error) && isset($body->error->message)) {
+                $error_msg = $body->error->message;
+            }
+            return array('error' => $error_msg ?: __('Could not generate address', 'blockonomics-bitcoin-payments'));
+        }
+        $address_body = json_decode($address_response->body);
+        if (!isset($address_body->address) || empty($address_body->address)) {
+            return array('error' => __('Could not generate address', 'blockonomics-bitcoin-payments'));
+        }
+        $result['address'] = $address_body->address;
+
+        // Process price response
+        $price_response = $responses['price'];
+        if ($price_response instanceof \WpOrg\Requests\Exception) {
+            return array('error' => $price_response->getMessage());
+        }
+        if ($price_response->status_code != 200) {
+            return array('error' => __('Could not get price', 'blockonomics-bitcoin-payments'));
+        }
+        $price_body = json_decode($price_response->body);
+
+        // Check for null price (unsupported currency)
+        if ($price_body && property_exists($price_body, 'price') && $price_body->price === null) {
+            return array('error' => sprintf(
+                __('Currency %s is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
+                $currency
+            ));
+        }
+        if (!isset($price_body->price) || empty($price_body->price)) {
+            return array('error' => __('Could not get price', 'blockonomics-bitcoin-payments'));
+        }
+        $result['price'] = $price_body->price;
+
+        return $result;
+    }
+
+    /* Calculate order parameters using pre-fetched price
+     *
+     * @param array $order Order data with order_id, crypto, address
+     * @param float $price Crypto price (already fetched)
+     * @return array Order with expected_fiat, expected_satoshi, currency
+     */
+    public function calculate_order_params_with_price($order, $price)
+    {
+        $wc_order = new WC_Order($order['order_id']);
+        global $wpdb;
+        $order_id = $wc_order->get_id();
+        $table_name = $wpdb->prefix . 'blockonomics_payments';
+        $query = $wpdb->prepare("SELECT expected_fiat,paid_fiat,currency FROM " . $table_name . " WHERE order_id = %d", $order_id);
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $paid_fiat = $this->calculate_total_paid_fiat($results);
+
+        // woocommerce_cart_calculate_fees already applied crypto payment discount
+        $total = (float) $wc_order->get_total();
+        $order['expected_fiat'] = $total - $paid_fiat;
+        $order['currency'] = get_woocommerce_currency();
+
+        // apply margin to price
+        $margin = floatval(get_option('blockonomics_margin', 0));
+        $adjusted_price = $price * 100 / (100 + $margin);
+
+        $crypto_data = $this->getSupportedCurrencies();
+        $crypto = $crypto_data[$order['crypto']];
+        $multiplier = pow(10, $crypto['decimals']);
+        $order['expected_satoshi'] = (int) round($multiplier * $order['expected_fiat'] / $adjusted_price);
+
+        return $order;
+    }
+
     /**
      * Get enabled cryptocurrencies from a store's wallets
      *
@@ -636,18 +818,24 @@ class Blockonomics
     }
 
     public function create_new_order($order_id, $crypto){
-        $responseObj = $this->new_address($crypto);
-        if($responseObj->response_code != 200) {
-            return array("error"=>$responseObj->response_message);
+        $currency = get_woocommerce_currency();
+
+        // Fetch address and price in parallel (or just address if currency is BTC)
+        $api_results = $this->fetch_order_data_parallel($crypto, $currency);
+
+        if (isset($api_results['error'])) {
+            return array('error' => $api_results['error']);
         }
-        $address = $responseObj->address;
+
         $order = array(
-            'order_id'           => $order_id,
-            'payment_status'     => 0,
-            'crypto'             => $crypto,
-            'address'            => $address
+            'order_id'       => $order_id,
+            'payment_status' => 0,
+            'crypto'         => $crypto,
+            'address'        => $api_results['address']
         );
-        return $this->calculate_order_params($order);
+
+        // Calculate order params using the pre-fetched price
+        return $this->calculate_order_params_with_price($order, $api_results['price']);
     }
 
     public function get_error_context($error_type){
