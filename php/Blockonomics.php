@@ -307,13 +307,8 @@ class Blockonomics
     // save to cache, what cryptos are enabled on blockonomics store
     public function saveBlockonomicsEnabledCryptos($cryptos)
     {
-        try {
-            update_option("blockonomics_enabled_cryptos", implode(',', $cryptos));
-            return true;
-        } catch (Exception $e) {
-            error_log("Failed to save enabled cryptos: " . $e->getMessage());
-            return false;
-        }
+        return update_option("blockonomics_enabled_cryptos", implode(',', $cryptos));
+
     }
 
     /* Find store with exact callback URL match, if multiple matches exist, prefers store with wallets attached
