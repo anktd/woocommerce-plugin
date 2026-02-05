@@ -192,12 +192,11 @@ class Blockonomics {
 
         // Initial Parameters
         ele.style.width = 0;
-        ele.style.height =
-            ref_position.height - border.top - border.bottom + 'px';
+        ele.style.height = ref_position.height - border.top - border.bottom + 'px';
         ele.style.top = position_y + border.top + 'px';
         ele.style.left = position_x + border.left + 'px';
         ele.style.borderTopLeftRadius = style.borderTopLeftRadius;
-        ele.style.borderTopRightRadius = style.borderTopLeRightdius;
+        ele.style.borderTopRightRadius = style.borderTopRightRdius;
         ele.style.borderBottomLeftRadius = style.borderBottomLeftRadius;
         ele.style.borderBottomRightRadius = style.borderBottomRightRadius;
         ele.style.backgroundColor = window.getComputedStyle(
