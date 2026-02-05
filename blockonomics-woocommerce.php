@@ -200,34 +200,26 @@ function blockonomics_woocommerce_init()
     }
 
     function apply_bitcoin_discount( $cart ) {
-        // Skip if admin or not on checkout page
-        if ( is_admin() || ! is_checkout() ) {
+        if (is_admin()) {
             return;
         }
-    
-        // Get payment method from multiple sources
-        $payment_method = get_selected_payment_method();
-        
-        if ( empty( $payment_method ) ) {
-            error_log( '[Blockonomics] No payment method available.' );
+        // must be on checkout page OR in Store API request (Block Checkout), care for method not exist error
+        $is_checkout_context = is_checkout() || (method_exists(WC(), 'is_store_api_request') && WC()->is_store_api_request());
+        if (!$is_checkout_context) {
             return;
         }
-    
-        // Only apply discount for Blockonomics payment method
-        if ( $payment_method !== 'blockonomics' ) {
+        if (get_selected_payment_method()!=='blockonomics'){
             return;
         }
-    
-        $discount_percent = floatval( get_option( 'blockonomics_bitcoin_discount', 0 ) );
-        
-        if ( $discount_percent < 0 ) {
-            error_log( '[Blockonomics] Discount not configured or invalid.' );
+
+        $discount_percent = floatval(get_option('blockonomics_bitcoin_discount', 0));
+        if ($discount_percent<=0) {
             return;
         }
-    
-        $discount = $cart->get_subtotal() * ( $discount_percent / 100 );
-        if ( $discount > 0 ) {
-            $cart->add_fee( __( 'Payment Method Discount', 'blockonomics-bitcoin-payments' ), -$discount, false );
+
+        $discount = $cart->get_subtotal()*($discount_percent/100);
+        if ($discount>0) {
+            $cart->add_fee(__('Bitcoin Payment Discount', 'blockonomics-bitcoin-payments').' ('.$discount_percent.'%)', -$discount, false);
         }
     }
 
