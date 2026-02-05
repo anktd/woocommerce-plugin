@@ -621,18 +621,45 @@ class Blockonomics
     }
 
     private function test_cryptos($enabled_cryptos) {
+        // Build parallel requests for all cryptos (BTC, USDT from stores API - not BCH)
+        $requests = [];
+        foreach ($enabled_cryptos as $code) {
+            $requests[$code] = [
+                'url' => $this->build_new_address_url($code),
+                'type' => \WpOrg\Requests\Requests::POST,
+                'headers' => $this->set_headers($this->api_key),
+                'options' => ['timeout' => 8]
+            ];
+        }
+
+        // Execute all requests in parallel
+        try {
+            $responses = \WpOrg\Requests\Requests::request_multiple($requests);
+        } catch (\Exception $e) {
+            return ['error_messages' => [__('Could not connect to Blockonomics API', 'blockonomics-bitcoin-payments')]];
+        }
+
+        // Process responses
         $success_messages = [];
         $error_messages = [];
 
-        foreach ($enabled_cryptos as $code) {
-            $response = $this->new_address($code, true);
+        foreach ($responses as $code => $response) {
+            if ($response instanceof \WpOrg\Requests\Exception) {
+                $error_messages[] = strtoupper($code) . ": " . $response->getMessage();
+                continue;
+            }
 
-            if ($response->response_code == 200 && !empty($response->address)) {
-                $success_messages[] = strtoupper($code) . " ✅";
+            if ($response->status_code == 200) {
+                $body = json_decode($response->body);
+                if (isset($body->address) && !empty($body->address)) {
+                    $success_messages[] = strtoupper($code) . " ✅";
+                } else {
+                    $msg = isset($body->message) ? $body->message : __('Could not generate new address', 'blockonomics-bitcoin-payments');
+                    $error_messages[] = strtoupper($code) . ": " . $msg;
+                }
             } else {
-                $msg = !empty($response->response_message)
-                    ? $response->response_message
-                    : __('Could not generate new address', 'blockonomics-bitcoin-payments');
+                $body = json_decode($response->body);
+                $msg = isset($body->message) ? $body->message : __('Could not generate new address', 'blockonomics-bitcoin-payments');
                 $error_messages[] = strtoupper($code) . ": " . $msg;
             }
         }
