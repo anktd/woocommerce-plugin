@@ -581,14 +581,9 @@ class Blockonomics
         $query = $wpdb->prepare("SELECT expected_fiat,paid_fiat,currency FROM ". $table_name." WHERE order_id = %d " , $order_id);
         $results = $wpdb->get_results($query,ARRAY_A);
         $paid_fiat = $this->calculate_total_paid_fiat($results);
-        $discount_percent = floatval( get_option( 'blockonomics_bitcoin_discount', 0 ) );
-        $subtotal = (float) $wc_order->get_subtotal();
+        // woocommerce_cart_calculate_fees already applied bitcoin payment method discount
         $total = (float) $wc_order->get_total();
-        
-        // Calculate the expected amount after applying the Bitcoin discount
-        $expected_fiat = $total - ( $subtotal * ( $discount_percent / 100 ) );
-        
-        $order['expected_fiat'] = $expected_fiat - $paid_fiat;
+        $order['expected_fiat'] = $total - $paid_fiat;
         $order['currency'] = get_woocommerce_currency();
         if (get_woocommerce_currency() != 'BTC') {
             $responseObj = $this->get_price($order['currency'], $order['crypto']);
