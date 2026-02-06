@@ -645,7 +645,13 @@ class Blockonomics
 
         foreach ($responses as $code => $response) {
             if ($response instanceof \WpOrg\Requests\Exception) {
-                $error_messages[] = strtoupper($code) . ": " . $response->getMessage();
+                $msg = $response->getMessage();
+                // cURL error 28 is standard for api timeoput
+                if (strpos($msg, 'cURL error 28') !== false || stripos($msg, 'timed out') !== false) {
+                    $error_messages[] = strtoupper($code) . ": " . __('Request timed out (server/firewall issue)', 'blockonomics-bitcoin-payments');
+                } else { // other possible connection errors (DNS, rate limited, SSL)
+                    $error_messages[] = strtoupper($code) . ": " . __('Connection failed (server/firewall issue)', 'blockonomics-bitcoin-payments');
+                }
                 continue;
             }
 
