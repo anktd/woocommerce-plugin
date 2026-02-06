@@ -48,46 +48,6 @@ class Blockonomics
         return $api_key;
     }
 
-    public function new_address($crypto, $reset=false)
-    {
-        $secret = get_option("blockonomics_callback_secret");
-        // Get the full callback URL
-        $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        $callback_url = add_query_arg('secret', $secret, $api_url);
-
-        // Build query parameters
-        $params = array();
-        if ($callback_url) {
-            $params['match_callback'] = $callback_url;
-        }
-        if ($reset) {
-            $params['reset'] = 1;
-        }
-        if($crypto === 'usdt'){
-            $params['crypto'] = "USDT";
-        }
-
-        $url = $crypto === 'bch' ? self::BCH_NEW_ADDRESS_URL : self::NEW_ADDRESS_URL;
-        if (!empty($params)) {
-            $url .= '?' . http_build_query($params);
-        }
-        $response = $this->post($url, $this->api_key, '', 8);
-        if (!isset($responseObj)) $responseObj = new stdClass();
-        $responseObj->{'response_code'} = wp_remote_retrieve_response_code($response);
-        $responseObj->{'response_message'} = '';
-        $responseObj->{'address'} = '';
-        if (wp_remote_retrieve_body($response)) {
-            $body = json_decode(wp_remote_retrieve_body($response));
-            if (isset($body->message)) {
-                $responseObj->{'response_message'} = $body->message;
-            } elseif (isset($body->error) && isset($body->error->message)) {
-                $responseObj->{'response_message'} = $body->error->message;
-            }
-            $responseObj->{'address'} = isset($body->address) ? $body->address : '';
-        }
-        return $responseObj;
-    }
-
     public function get_price($currency, $crypto) {
         if($crypto === 'bch'){
             $url = Blockonomics::BCH_PRICE_URL. "?currency=$currency";
@@ -327,24 +287,7 @@ class Blockonomics
      * @param string $currency Fiat currency code
      * @return array ['address' => string, 'price' => float] or ['error' => string]
      */
-    private function fetch_order_data_parallel($crypto, $currency)
-    {
-        $start_time = microtime(true);
-
-        // when woocommerce currency is BTC, price = 1, so only call api/new_address
-        if ($currency === 'BTC') {
-            $address_response = $this->new_address($crypto);
-            $elapsed = round((microtime(true) - $start_time) * 1000);
-            error_log("Blockonomics parallel fetch (BTC currency, address only): {$elapsed}ms");
-            if ($address_response->response_code != 200) {
-                return array('error' => $address_response->response_message);
-            }
-            return array(
-                'address' => $address_response->address,
-                'price' => 1
-            );
-        }
-
+    private function fetch_order_data_parallel($crypto, $currency){
         // build url for both API calls
         $address_url = $this->build_new_address_url($crypto);
         $price_url = $this->build_price_url($currency, $crypto);
@@ -586,16 +529,6 @@ class Blockonomics
         $this->saveBlockonomicsEnabledCryptos($enabled_cryptos);
 
         $result = $this->test_cryptos($enabled_cryptos);
-        $duplicate_count = isset($match_result['duplicate_count']) ? $match_result['duplicate_count'] : 0;
-        if ($duplicate_count > 0) {
-            $store_name = !empty($matching_store->name) ? $matching_store->name : __('(unnamed)', 'blockonomics-bitcoin-payments');
-            $notice = sprintf(
-                __('Note: Found %d duplicate store(s) with matching callback URL. Using "%s" which has payments enabled. You may want to remove unused stores from your <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">Blockonomics dashboard</a>.', 'blockonomics-bitcoin-payments'),
-                $duplicate_count,
-                esc_html($store_name)
-            );
-            $result['duplicate_notice'] = $notice;
-        }
         // include store info for JS to update UI without page refresh
         $result['store_name'] = $matching_store->name ?? '';
         $result['enabled_cryptos'] = $enabled_cryptos;
