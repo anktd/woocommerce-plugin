@@ -36,10 +36,16 @@ class Blockonomics
     }
 
     private $api_key;
+    private $logger;
 
     public function __construct()
     {
         $this->api_key = $this->get_api_key();
+        $this->logger = wc_get_logger();
+    }
+
+    private function log($message, $level = 'info') {
+        $this->logger->log($level, $message, array('source' => 'blockonomics'));
     }
 
     public function get_api_key()
@@ -224,7 +230,7 @@ class Blockonomics
         if($timeout){
             $data['timeout'] = $timeout;
         }
-        
+
         $response = wp_remote_post( $url, $data );
         return $response;
     }
@@ -311,6 +317,7 @@ class Blockonomics
         try {
             $responses = \WpOrg\Requests\Requests::request_multiple($requests);
         } catch (\Exception $e) {
+            $this->log('Checkout: parallel request exception: ' . $e->getMessage(), 'error');
             return array('error' => $e->getMessage());
         }
         return $this->process_parallel_responses($responses, $currency);
@@ -329,6 +336,7 @@ class Blockonomics
         // Process address response
         $address_response = $responses['address'];
         if ($address_response instanceof \WpOrg\Requests\Exception) {
+            $this->log('Checkout: new_address exception: ' . $address_response->getMessage(), 'error');
             return array('error' => $address_response->getMessage());
         }
         if ($address_response->status_code != 200) {
@@ -339,10 +347,12 @@ class Blockonomics
             } elseif (isset($body->error) && isset($body->error->message)) {
                 $error_msg = $body->error->message;
             }
+            $this->log('Checkout: new_address HTTP ' . $address_response->status_code . ' - ' . ($error_msg ?: $address_response->body), 'error');
             return array('error' => $error_msg ?: __('Could not generate address', 'blockonomics-bitcoin-payments'));
         }
         $address_body = json_decode($address_response->body);
         if (!isset($address_body->address) || empty($address_body->address)) {
+            $this->log('Checkout: new_address returned 200 but no address in body: ' . $address_response->body, 'error');
             return array('error' => __('Could not generate address', 'blockonomics-bitcoin-payments'));
         }
         $result['address'] = $address_body->address;
@@ -350,21 +360,25 @@ class Blockonomics
         // Process price response
         $price_response = $responses['price'];
         if ($price_response instanceof \WpOrg\Requests\Exception) {
+            $this->log('Checkout: price API exception: ' . $price_response->getMessage(), 'error');
             return array('error' => $price_response->getMessage());
         }
         if ($price_response->status_code != 200) {
+            $this->log('Checkout: price API HTTP ' . $price_response->status_code . ' - ' . $price_response->body, 'error');
             return array('error' => __('Could not get price', 'blockonomics-bitcoin-payments'));
         }
         $price_body = json_decode($price_response->body);
 
         // Check for null price (unsupported currency)
         if ($price_body && property_exists($price_body, 'price') && $price_body->price === null) {
+            $this->log('Checkout: price API returned null price for currency ' . $currency, 'error');
             return array('error' => sprintf(
                 __('Currency %s is not supported by Blockonomics', 'blockonomics-bitcoin-payments'),
                 $currency
             ));
         }
         if (!isset($price_body->price) || empty($price_body->price)) {
+            $this->log('Checkout: price API returned empty/missing price: ' . $price_response->body, 'error');
             return array('error' => __('Could not get price', 'blockonomics-bitcoin-payments'));
         }
         $result['price'] = $price_body->price;
@@ -866,6 +880,7 @@ class Blockonomics
         $context['crypto'] = $cryptos[$crypto];
 
         if (array_key_exists('error', $order)) {
+            $this->log('get_checkout_context: error for order_id=' . ($order['order_id'] ?? 'unknown') . ' - "' . $order['error'] . '"', 'error');
             // Check if this is a currency error
             if (strpos($order['error'], 'Currency') === 0) {
                 $error_context = $this->get_error_context('currency');
@@ -1062,20 +1077,28 @@ class Blockonomics
         $order = $this->get_order_by_id_and_crypto($order_id, $crypto);
         if ($order) {
             // Update the existing order info
+            $this->log('process_order: existing order found for order_id=' . $order_id . ' crypto=' . $crypto . ' status=' . $order['payment_status']);
             $order = $this->calculate_order_params($order);
+            if (array_key_exists("error", $order)) {
+                $this->log('process_order: calculate_order_params error: ' . $order['error'], 'error');
+            }
             $this->update_order($order);
         }else {
             // Create and add the new order to the database
+            $this->log('process_order: creating new order for order_id=' . $order_id . ' crypto=' . $crypto);
             $order = $this->create_new_order($order_id, $crypto);
             if (array_key_exists("error", $order)) {
                 // Some error in Address Generation from API, return the same array.
+                $this->log('process_order: create_new_order error: ' . $order['error'], 'error');
                 return $order;
             }
             $result = $this->insert_order($order);
             if (array_key_exists("error", $result)) {
                 // Some error in inserting order to DB, return the error.
+                $this->log('process_order: insert_order error: ' . $result['error'], 'error');
                 return $result;
             }
+            $this->log('process_order: order created successfully, address=' . $order['address']);
             $this->record_address($order_id, $crypto, $order['address']);
             $this->record_expected_satoshi($order_id, $crypto, $order['expected_satoshi']);
         }
@@ -1218,6 +1241,7 @@ class Blockonomics
 
     // Process the blockonomics callback
     public function process_callback($secret, $crypto, $address, $status, $value, $txid, $rbf, $testnet){
+        $this->log('Callback received: crypto=' . $crypto . ' address=' . $address . ' status=' . $status . ' value=' . $value . ' txid=' . $txid . ' rbf=' . ($rbf ? 'true' : 'false'));
         $this->check_callback_secret($secret);
 
         if (strtolower($crypto) == "usdt"){
@@ -1230,23 +1254,25 @@ class Blockonomics
         }else{
             $order = $this->get_order_by_address($address);
         }
+        $this->log('Callback: matched order_id=' . $order['order_id'] . ' crypto=' . $order['crypto'] . ' current_status=' . $order['payment_status']);
 
         $wc_order = wc_get_order($order['order_id']);
 
         if (empty($wc_order)) {
             exit(__("Error: Woocommerce order not found", 'blockonomics-bitcoin-payments'));
         }
-        
+
         $order['txid'] = $txid;
 
         if (!$rbf){
           // Unconfirmed RBF payments are easily cancelled should be ignored
-          // https://insights.blockonomics.co/bitcoin-payments-can-now-easily-cancelled-a-step-forward-or-two-back/ 
+          // https://insights.blockonomics.co/bitcoin-payments-can-now-easily-cancelled-a-step-forward-or-two-back/
           $order = $this->update_paid_amount($status, $value, $order, $wc_order);
           $this->save_transaction($order['txid'], $wc_order);
         }
 
         $this->update_order($order);
+        $this->log('Callback: order updated, new_status=' . $order['payment_status'] . ' paid_satoshi=' . ($order['paid_satoshi'] ?? 'N/A'));
         $blockonomics_currencies = $this->getSupportedCurrencies();
         $selected_currency = $blockonomics_currencies[$order['crypto']];
         $wc_order->set_payment_method_title($selected_currency['name']);
