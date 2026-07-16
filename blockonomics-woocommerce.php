@@ -534,7 +534,6 @@ function blockonomics_update_db_check() {
 }
 
 function blockonomics_run_db_updates($installed_ver){
-    global $wpdb;
     global $blockonomics_db_version;
     if (version_compare($installed_ver, '1.2', '<')){
         blockonomics_create_table();
@@ -546,12 +545,6 @@ function blockonomics_run_db_updates($installed_ver){
     if (version_compare($installed_ver, '1.5', '<')){
         blockonomics_create_table();
         blockonomics_update_primary_key();
-        // 6. MySQL 8+ only: add partial unique indexes for BTC/USDT
-        $mysql_version = $wpdb->get_var("SELECT VERSION()");
-        if (version_compare($mysql_version, '8.0.0', '>=')) {
-            $wpdb->query("CREATE UNIQUE INDEX unique_btc_address ON $table_name (address) WHERE crypto = 'BTC'");
-            $wpdb->query("CREATE UNIQUE INDEX unique_usdt_txid ON $table_name (txid) WHERE crypto = 'USDT' AND txid <> ''");
-        }
     }
     update_option( 'blockonomics_db_version', $blockonomics_db_version );
 }
