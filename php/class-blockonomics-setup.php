@@ -30,6 +30,92 @@ class Blockonomics_Setup {
         );
     }
 
+    private function response_error($response, $context, $fallback_message, $use_server_message = false) {
+        if (is_wp_error($response)) {
+            return $this->connection_error($context, $response);
+        }
+
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code === 200) {
+            return null;
+        }
+
+        if ($response_code === 401) {
+            return array('error' => __('API Key is incorrect', 'blockonomics-bitcoin-payments'));
+        }
+
+        if ($response_code === 429 || ($response_code >= 500 && $response_code < 600)) {
+            return array(
+                'error' => __('Blockonomics is temporarily unavailable. Please try again in a few minutes.', 'blockonomics-bitcoin-payments')
+            );
+        }
+
+        if ($use_server_message) {
+            $response_data = json_decode(wp_remote_retrieve_body($response), true);
+            if (is_array($response_data)) {
+                $server_message = $response_data['message'] ?? $response_data['error'] ?? '';
+                if (is_string($server_message) && $server_message !== '') {
+                    return array('error' => sanitize_text_field($server_message));
+                }
+            }
+        }
+
+        return array('error' => $fallback_message);
+    }
+
+    private function fetch_stores_with_wallets($api_key) {
+        // Wallet details are required to select and finalize a configured store.
+        $stores_url = add_query_arg(
+            'wallets',
+            'true',
+            Blockonomics::BASE_URL . '/api/v2/stores'
+        );
+
+        $response = wp_remote_get(
+            $stores_url,
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type' => 'application/json'
+                ),
+                'timeout' => 8
+            )
+        );
+
+        $error = $this->response_error(
+            $response,
+            'Setup wizard store lookup failed',
+            __('Failed to check stores', 'blockonomics-bitcoin-payments')
+        );
+        if ($error) {
+            return $error;
+        }
+
+        $response_data = json_decode(wp_remote_retrieve_body($response));
+        if (!is_object($response_data) || !isset($response_data->data) || !is_array($response_data->data)) {
+            return array(
+                'error' => __('Invalid response was received. Please retry.', 'blockonomics-bitcoin-payments')
+            );
+        }
+
+        foreach ($response_data->data as $store) {
+            if (
+                !is_object($store) ||
+                !isset($store->id) ||
+                !property_exists($store, 'name') ||
+                !property_exists($store, 'http_callback') ||
+                !isset($store->wallets) ||
+                !is_array($store->wallets)
+            ) {
+                return array(
+                    'error' => __('Invalid response was received. Please retry.', 'blockonomics-bitcoin-payments')
+                );
+            }
+        }
+
+        return array('stores' => $response_data->data);
+    }
+
     private function get_callback_url() {
         $callback_secret = get_option('blockonomics_callback_secret');
         $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
@@ -58,7 +144,7 @@ class Blockonomics_Setup {
 
         if ($response_code === 429 || ($response_code >= 500 && $response_code < 600)) {
             return array(
-                'error' => __('Blockonomics is temporarily unavailable — please try again in a few minutes.', 'blockonomics-bitcoin-payments')
+                'error' => __('Blockonomics is temporarily unavailable. Please try again in a few minutes.', 'blockonomics-bitcoin-payments')
             );
         }
 
@@ -94,20 +180,13 @@ class Blockonomics_Setup {
 
     public function check_store_setup() {
         $api_key = get_option('blockonomics_api_key');
-        $stores_url = Blockonomics::BASE_URL . '/api/v2/stores?wallets=true';
-        $response = wp_remote_get($stores_url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json'
-            )
-        ));
-
-        if (is_wp_error($response)) {
-            return array('error' => 'Failed to check stores');
+        $stores_result = $this->fetch_stores_with_wallets($api_key);
+        if (isset($stores_result['error'])) {
+            return $stores_result;
         }
 
-        $stores = json_decode(wp_remote_retrieve_body($response));
-        if (empty($stores->data)) {
+        $stores = $stores_result['stores'];
+        if (empty($stores)) {
             return array('needs_store' => true);
         }
 
@@ -118,7 +197,7 @@ class Blockonomics_Setup {
         $exact_matches = array();
         $partial_matches = array();
 
-        foreach ($stores->data as $store) {
+        foreach ($stores as $store) {
             // first we check for exact match
             if ($store->http_callback === $wordpress_callback_url) {
                 $exact_matches[] = $store;
@@ -148,13 +227,21 @@ class Blockonomics_Setup {
                     'body' => wp_json_encode(array(
                         'name' => $best_store->name,
                         'http_callback' => $wordpress_callback_url
-                    ))
+                    )),
+                    'timeout' => 8
                 )
             );
 
-            if (wp_remote_retrieve_response_code($response) === 200) {
-                return $this->finalize_store_match($best_store, $api_key);
+            $update_error = $this->response_error(
+                $update_response,
+                'Setup wizard callback update failed',
+                __("Could not update your store's callback URL. Please try again.", 'blockonomics-bitcoin-payments')
+            );
+            if ($update_error) {
+                return $update_error;
             }
+
+            return $this->finalize_store_match($best_store, $api_key);
         }
         // No matching store found - need to create a new one
         return array('needs_store' => true);
@@ -230,12 +317,20 @@ class Blockonomics_Setup {
         $api_key = get_option('blockonomics_api_key');
         $wallet_id = get_option('blockonomics_temp_wallet_id');
         $callback_url = $this->get_callback_url();
-        $existing_store = $this->find_store_by_callback($api_key, $callback_url);
+        $store_lookup = $this->find_store_by_callback($api_key, $callback_url);
+        if (isset($store_lookup['error'])) {
+            return $store_lookup;
+        }
+
+        $existing_store = $store_lookup['store'];
         if ($existing_store !== null) {
             // store already exists - use it instead of creating duplicate
             // update store name if user provided a different one
             if ($store_name !== $existing_store->name) {
-                $this->update_store_name($api_key, $existing_store->id, $store_name);
+                $name_update = $this->update_store_name($api_key, $existing_store->id, $store_name);
+                if (isset($name_update['error'])) {
+                    return $name_update;
+                }
                 $existing_store->name = $store_name;
             }
             return $this->finalize_store_match($existing_store, $api_key);
@@ -253,84 +348,84 @@ class Blockonomics_Setup {
                     'Authorization' => 'Bearer ' . $api_key,
                     'Content-Type' => 'application/json'
                 ),
-                'body' => wp_json_encode($store_data)
+                'body' => wp_json_encode($store_data),
+                'timeout' => 8
             )
         );
-        if (is_wp_error($response)) {
-            delete_option('blockonomics_temp_wallet_id');
-            return array('error' => 'Failed to create store: ' . $response->get_error_message());
+
+        $create_error = $this->response_error(
+            $response,
+            'Setup wizard store creation failed',
+            __('Failed to create store', 'blockonomics-bitcoin-payments'),
+            true
+        );
+        if ($create_error) {
+            return $create_error;
         }
-        $response_code = wp_remote_retrieve_response_code($response);
+
         $response_body = wp_remote_retrieve_body($response);
-        if ($response_code === 200) {
-            $response_data = json_decode($response_body, true);
-            if (!empty($response_data['data']['id']) && $wallet_id) {
-                $store_id = $response_data['data']['id'];
-
-                // Step 2: Attach wallet to store
-                $wallet_attach_response = wp_remote_post(
-                    Blockonomics::BASE_URL . '/api/v2/stores/' . $store_id . '/wallets',
-                    array(
-                        'headers' => array(
-                            'Authorization' => 'Bearer ' . $api_key,
-                            'Content-Type' => 'application/json'
-                        ),
-                        'body' => wp_json_encode(array(
-                            'wallet_id' => (int)$wallet_id
-                        ))
-                    )
-                );
-
-                // Step 3: Update enabled cryptos based on attached wallet
-                $wallet_attach_data = json_decode(wp_remote_retrieve_body($wallet_attach_response), true);
-                if (!empty($wallet_attach_data['data']['wallets'][0]['crypto'])) {
-                    $crypto = strtolower($wallet_attach_data['data']['wallets'][0]['crypto']);
-                    update_option('blockonomics_enabled_cryptos', $crypto);
-                }
-            }
-            update_option('blockonomics_store_name', $store_name);
-            delete_option('blockonomics_temp_wallet_id');
-            return array('success' => true);
+        $response_data = json_decode($response_body, true);
+        if (!is_array($response_data) || empty($response_data['data']['id'])) {
+            return array('error' => __('Failed to create store', 'blockonomics-bitcoin-payments'));
         }
-        return array('error' => 'Failed to create store');
+
+        $store_id = $response_data['data']['id'];
+        if ($wallet_id) {
+
+            // Step 2: Attach wallet to store
+            $wallet_attach_response = wp_remote_post(
+                Blockonomics::BASE_URL . '/api/v2/stores/' . $store_id . '/wallets',
+                array(
+                    'headers' => array(
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type' => 'application/json'
+                    ),
+                    'body' => wp_json_encode(array(
+                        'wallet_id' => (int)$wallet_id
+                    ))
+                )
+            );
+
+            // Step 3: Update enabled cryptos based on attached wallet
+            $wallet_attach_data = json_decode(wp_remote_retrieve_body($wallet_attach_response), true);
+            if (!empty($wallet_attach_data['data']['wallets'][0]['crypto'])) {
+                $crypto = strtolower($wallet_attach_data['data']['wallets'][0]['crypto']);
+                update_option('blockonomics_enabled_cryptos', $crypto);
+            }
+        }
+        update_option('blockonomics_store_name', $store_name);
+        delete_option('blockonomics_temp_wallet_id');
+        return array('success' => true);
     }
 
     /* Find a store by its callback URL
      * selects best store when multiple matches exist
      * @param string $api_key The API key for Blockonomics
      * @param string $callback_url The callback URL to search for
-     * @return object|null Best matching store object if found, null otherwise
+     * @return array Result containing a store object/null, or an error
      */
     private function find_store_by_callback($api_key, $callback_url) {
-        $stores_url = Blockonomics::BASE_URL . '/api/v2/stores?wallets=true';
-        $response = wp_remote_get($stores_url, array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type' => 'application/json'
-            )
-        ));
-
-        if (is_wp_error($response)) {
-            return null;
+        $stores_result = $this->fetch_stores_with_wallets($api_key);
+        if (isset($stores_result['error'])) {
+            return $stores_result;
         }
 
-        $stores = json_decode(wp_remote_retrieve_body($response));
-        if (empty($stores->data)) {
-            return null;
+        if (empty($stores_result['stores'])) {
+            return array('store' => null);
         }
 
         // collect all matching stores
         $matching_stores = array();
-        foreach ($stores->data as $store) {
+        foreach ($stores_result['stores'] as $store) {
             if ($store->http_callback === $callback_url) {
                 $matching_stores[] = $store;
             }
         }
         if (empty($matching_stores)){
-            return null;
+            return array('store' => null);
         }
         //always return best store from matches
-        return $this->select_best_store($matching_stores);
+        return array('store' => $this->select_best_store($matching_stores));
     }
 
     /*
@@ -387,7 +482,7 @@ class Blockonomics_Setup {
      * @param string $api_key The API key for Blockonomics
      * @param int $store_id The store ID to update
      * @param string $new_name The new name for the store
-     * @return bool True if successful, false otherwise
+     * @return array Result containing success or an error
      */
     private function update_store_name($api_key, $store_id, $new_name) {
         $response = wp_remote_post(
@@ -399,10 +494,20 @@ class Blockonomics_Setup {
                 ),
                 'body' => wp_json_encode(array(
                     'name' => $new_name
-                ))
+                )),
+                'timeout' => 8
             )
         );
 
-        return wp_remote_retrieve_response_code($response) === 200;
+        $update_error = $this->response_error(
+            $response,
+            'Setup wizard store name update failed',
+            __('Could not update your store name. Please try again.', 'blockonomics-bitcoin-payments')
+        );
+        if ($update_error) {
+            return $update_error;
+        }
+
+        return array('success' => true);
     }
 }
