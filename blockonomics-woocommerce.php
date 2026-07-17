@@ -612,6 +612,8 @@ function blockonomics_uninstall_hook() {
     delete_option('woocommerce_blockonomics_settings');
     delete_option('blockonomics_store_name');
     delete_option('blockonomics_enabled_cryptos');
+    delete_option('blockonomics_temp_wallet_id');
+    delete_option('blockonomics_temp_wallet_ids');
 
     global $wpdb;
     // drop blockonomics_orders & blockonomics_payments on uninstallation
