@@ -10,6 +10,26 @@ if (!defined('ABSPATH')) {
 
 class Blockonomics_Setup {
     private $api_key;
+
+    private function log_http_error($context, $error) {
+        if (!function_exists('wc_get_logger') || !is_wp_error($error)) {
+            return;
+        }
+
+        wc_get_logger()->error(
+            $context . ': ' . $error->get_error_message(),
+            array('source' => 'blockonomics')
+        );
+    }
+
+    private function connection_error($context, $error) {
+        $this->log_http_error($context, $error);
+
+        return array(
+            'error' => __('Could not reach Blockonomics. Please check your connection and try again.', 'blockonomics-bitcoin-payments')
+        );
+    }
+
     private function get_callback_url() {
         $callback_secret = get_option('blockonomics_callback_secret');
         $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
@@ -23,34 +43,53 @@ class Blockonomics_Setup {
             'headers' => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type' => 'application/json'
-            )
+            ),
+            'timeout' => 8
         ));
 
         if (is_wp_error($response)) {
-            return array('error' => 'Failed to check wallets: ' . $response->get_error_message());
+            return $this->connection_error('Setup wizard wallet validation failed', $response);
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
         if ($response_code === 401) {
-            return array('error' => 'API Key is incorrect');
+            return array('error' => __('API Key is incorrect', 'blockonomics-bitcoin-payments'));
         }
 
-        if ($response_code === 200) {
-            $wallets = json_decode(wp_remote_retrieve_body($response), true);
-            if (empty($wallets['data'])) {
-                return array('error' => 'Please create a Wallet');
-            }
-            // Store the wallet ID for step 2 of store creation
-            if (!empty($wallets['data'][0]['id'])) {
-                update_option('blockonomics_temp_wallet_id', $wallets['data'][0]['id']);
-            }
-
-            $this->api_key = $api_key;
-            update_option('blockonomics_api_key', $api_key);  // Also save it to WordPress options
-            return array('success' => true);
+        if ($response_code === 429 || ($response_code >= 500 && $response_code < 600)) {
+            return array(
+                'error' => __('Blockonomics is temporarily unavailable — please try again in a few minutes.', 'blockonomics-bitcoin-payments')
+            );
         }
 
-        return array('error' => 'Could not verify API key');
+        if ($response_code !== 200) {
+            return array('error' => __('Could not verify API key', 'blockonomics-bitcoin-payments'));
+        }
+
+        $wallets = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($wallets) || !isset($wallets['data']) || !is_array($wallets['data'])) {
+            return array('error' => __('Could not verify API key', 'blockonomics-bitcoin-payments'));
+        }
+
+        if (empty($wallets['data'])) {
+            return array(
+                'error' => __('Please create a Wallet', 'blockonomics-bitcoin-payments'),
+                'error_code' => 'wallet_required'
+            );
+        }
+
+        $wallet_id = $wallets['data'][0]['id'] ?? null;
+        if (!$wallet_id) {
+            return array('error' => __('Could not verify API key', 'blockonomics-bitcoin-payments'));
+        }
+
+        // Keep the existing single-wallet option until the all-wallet reconciliation change.
+        update_option('blockonomics_temp_wallet_id', $wallet_id);
+
+        $this->api_key = $api_key;
+        update_option('blockonomics_api_key', $api_key);
+
+        return array('success' => true);
     }
 
     public function check_store_setup() {
