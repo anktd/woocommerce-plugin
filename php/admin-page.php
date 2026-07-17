@@ -21,7 +21,6 @@ function blockonomics_setup_page() {
         if (empty($api_key)) {
             $error_message = 'Please enter your API key';
         } else {
-            update_option('blockonomics_api_key', $api_key);
             $result = $setup->validate_api_key($api_key);
 
             if (isset($result['error'])) {
