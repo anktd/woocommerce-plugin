@@ -87,13 +87,7 @@
 .woocommerce-save-button {
     position: fixed;
     bottom: 24px;
-    left: 200px;
+    inset-inline-end: 24px;
     z-index: 9999;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-@media (max-width: 782px) {
-    .woocommerce-save-button {
-        left: 10px;
-    }
 }
