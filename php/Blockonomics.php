@@ -500,10 +500,6 @@ class Blockonomics
 
     public function testSetup()
     {
-        // just clear these first, they will only be set again on success
-        delete_option("blockonomics_store_name");
-        delete_option("blockonomics_enabled_cryptos");
-
         $api_key = $this->get_api_key();
 
         if (empty($api_key)) {
