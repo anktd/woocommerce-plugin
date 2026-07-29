@@ -5,7 +5,8 @@ if (!is_array($cryptos)) {
     $cryptos = [];
 }
 $order_id = isset($_REQUEST["select_crypto"]) ? sanitize_text_field(wp_unslash($_REQUEST["select_crypto"])) : "";
-$order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>$order_id))
+$order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>$order_id));
+$estimates = $order_id ? $blockonomics->get_crypto_selection_estimates($order_id, $cryptos) : array();
 ?>
 <div class="woocommerce bnomics-order-container">
   <div class="bnomics-select-container">
@@ -17,6 +18,9 @@ $order_url = $blockonomics->get_parameterized_wc_url('page',array('show_order'=>
         <button class="bnomics-select-options woocommerce-button button">
           <img class="bnomics-crypto-icon" src="<?php echo plugins_url('../img/' . $code . '.svg', __FILE__); ?>" alt="<?php echo $crypto['name']; ?>">
           <span><?=__('Pay with', 'blockonomics-bitcoin-payments')?> <?php echo $crypto['name'];?></span>
+          <?php if (isset($estimates[$code])) { ?>
+          <span class="bnomics-crypto-amount"><?php echo esc_html('≈ ' . $estimates[$code] . ' ' . strtoupper($code)); ?></span>
+          <?php } ?>
         </button>
       </a>
     <?php

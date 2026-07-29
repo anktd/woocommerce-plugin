@@ -658,6 +658,33 @@ class Blockonomics
         return $order_url;
     }
     
+    // Indicative amounts for the crypto selection page, one per active crypto.
+    // Uses the same price/margin math as checkout; skips a crypto if its price fetch fails.
+    public function get_crypto_selection_estimates($order_hash, $cryptos){
+        $estimates = array();
+        $order_id = $this->decrypt_hash($order_hash);
+        $wc_order = wc_get_order($order_id);
+        if (!$wc_order) {
+            return $estimates;
+        }
+        $expected_fiat = (float) $wc_order->get_total() - $this->get_order_paid_fiat($order_id);
+        $currency = $wc_order->get_currency();
+        $margin = floatval(get_option('blockonomics_margin', 0));
+        foreach ($cryptos as $code => $crypto) {
+            $responseObj = $this->get_price($currency, $code);
+            if ($responseObj->response_code != 200 || empty($responseObj->price)) {
+                continue;
+            }
+            $adjusted_price = $responseObj->price * 100 / (100 + $margin);
+            $satoshi = (int) round(pow(10, $crypto['decimals']) * $expected_fiat / $adjusted_price);
+            if ($satoshi <= 0) {
+                continue;
+            }
+            $estimates[$code] = $this->fix_displaying_small_values($code, $satoshi);
+        }
+        return $estimates;
+    }
+
     // Check if a template is a nojs template
     public function is_nojs_template($template_name){
         if (strpos($template_name, 'nojs') === 0) {
