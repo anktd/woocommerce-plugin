@@ -58,7 +58,10 @@ function blockonomics_setup_page() {
         }
     }
 
-    $api_key = get_option('blockonomics_api_key', '');
+    // Keep the submitted value on failed validation instead of reverting to the stored key
+    $api_key = isset($_POST['blockonomics_api_key'])
+        ? sanitize_text_field(wp_unslash($_POST['blockonomics_api_key']))
+        : get_option('blockonomics_api_key', '');
     $current_step = isset($_GET['step']) ? intval($_GET['step']) : 1;
     if (empty($api_key)) {
         $current_step = 1;
@@ -75,32 +78,36 @@ function blockonomics_setup_page() {
             $needs_store_name = true;
         }
     }
+    // Wizard stage: 1 = connect account, 2 = store setup, 3 = ready
+    $wizard_stage = 1;
+    if ($current_step == 2) {
+        $wizard_stage = (isset($needs_store_name) && $needs_store_name) ? 2 : 3;
+    }
+    $wizard_steps = array(1 => 'Connect account', 2 => 'Store setup', 3 => 'Ready');
+    $logo_url = plugins_url('../img/blockonomics_logo_black.svg', __FILE__);
     ?>
     <div class="wrap">
         <div class="bnomics-welcome-header">
             <!-- Empty h1 tag is required for UI consistency -->
             <h1></h1>
         </div>
-        <!-- Moved progress bar outside the setup wizard -->
         <div class="bnomics-progress-bar">
-            <div class="bnomics-progress-line">
-                <div class="bnomics-progress-line-inner" style="width: 100%;"></div>
-            </div>
-            <div class="bnomics-progress-step active">1</div>
-            <div class="bnomics-progress-line">
-                <div class="bnomics-progress-line-inner" style="width: <?php echo $current_step >= 2 ? '100%' : '0%'; ?>;"></div>
-            </div>
-            <div class="bnomics-progress-step <?php echo $current_step >= 2 ? 'active' : ''; ?>">2</div>
-            <div class="bnomics-progress-line">
-                <div class="bnomics-progress-line-inner" style="width: <?php echo ($current_step == 2 && !isset($needs_store_name)) ? '100%' : '0%'; ?>;"></div>
-            </div>
+            <?php foreach ($wizard_steps as $step_num => $step_label): ?>
+                <?php if ($step_num > 1): ?>
+                    <div class="bnomics-progress-line<?php echo $wizard_stage >= $step_num ? ' filled' : ''; ?>"></div>
+                <?php endif; ?>
+                <div class="bnomics-progress-step<?php echo $wizard_stage > $step_num ? ' done' : ($wizard_stage == $step_num ? ' active' : ''); ?>">
+                    <span class="bnomics-progress-circle"><?php echo $wizard_stage > $step_num ? '&#10003;' : $step_num; ?></span>
+                    <span class="bnomics-progress-label"><?php echo esc_html($step_label); ?></span>
+                </div>
+            <?php endforeach; ?>
         </div>
         <div class="blockonomics-setup-wizard">
             <?php if ($current_step == 1): ?>
                 <div class="bnomics-wizard-heading">
                     <h2>Get started with Blockonomics</h2>
                     <div class="blockonomics-logo">
-                        <img src="<?php echo plugins_url('../img/blockonomics_logo_black.svg', __FILE__); ?>" alt="Blockonomics Logo">
+                        <img src="<?php echo esc_url($logo_url); ?>" alt="Blockonomics Logo">
                     </div>
                 </div>
                 <ol>
@@ -137,24 +144,12 @@ function blockonomics_setup_page() {
             <?php else: ?>
                 <?php if (isset($needs_store_name) && $needs_store_name): ?>
                     <!-- Store Name Input Screen -->
-                    <script>
-                        // Fill progress bar before step 2 circle
-                        document.addEventListener('DOMContentLoaded', function() {
-                            document.querySelector('.bnomics-progress-line:nth-child(3) .bnomics-progress-line-inner').style.width = '100%';
-                        });
-                    </script>
                     <div class="bnomics-wizard-heading">
                         <h2>Enter Your Store Name</h2>
                         <div class="blockonomics-logo">
-                            <img src="<?php echo plugins_url('../img/blockonomics_logo_black.svg', __FILE__); ?>" alt="Blockonomics Logo">
+                            <img src="<?php echo esc_url($logo_url); ?>" alt="Blockonomics Logo">
                         </div>
                     </div>
-                    <script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            const progressSteps = document.querySelectorAll('.bnomics-progress-step');
-                            progressSteps[1].classList.remove('active');
-                        });
-                    </script>
                     <form method="post" action="">
                         <?php if (isset($store_error)): ?>
                             <div class="notice notice-error">
@@ -176,9 +171,12 @@ function blockonomics_setup_page() {
                 <?php else: ?>
                     <!-- Final Success Screen -->
                     <div class="bnomics-wizard-heading">
-                        <h3>Success! Blockonomics is now enabled for <?php echo esc_html($store_name); ?>.</h3>
+                        <div>
+                            <h3>Success!</h3>
+                            <p class="bnomics-success-store">Blockonomics is now enabled for <strong><?php echo esc_html($store_name); ?></strong>.</p>
+                        </div>
                         <div class="blockonomics-logo">
-                            <img src="<?php echo plugins_url('../img/blockonomics_logo_black.svg', __FILE__); ?>" alt="Blockonomics Logo">
+                            <img src="<?php echo esc_url($logo_url); ?>" alt="Blockonomics Logo">
                         </div>
                     </div>
                     <p><a href="<?php echo admin_url('admin.php?page=wc-settings&tab=checkout&section=blockonomics'); ?>" class="button button-primary">Done</a></p>
