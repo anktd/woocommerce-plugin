@@ -509,6 +509,9 @@ function blockonomics_create_payment_page()
     if ( null === $wp_rewrite ) {
         $wp_rewrite = new \WP_Rewrite;
     }
+    if ( ! function_exists( 'wc_create_page' ) ) {
+        include_once(WC()->plugin_path().'/includes/admin/wc-admin-functions.php');
+    }
     wc_create_page(
         'payment',
         'woocommerce_payment_page_id',
