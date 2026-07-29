@@ -4,7 +4,6 @@
 * Added floating Save Changes button on the settings page
 * Added support for multicurrency stores
 * Setup wizard enhancements
-* Crypto amount now shown on the currency selection page
 * Plugin activation via WP-CLI supported
 
 = 3.9.1  =
