@@ -1,11 +1,11 @@
 === Blockonomics Bitcoin Payments ===
 **Tags:** bitcoin, bitcoin payments, usdt payments, woocommerce, cryptocurrency
 **Requires at least:** 5.6
-**Tested up to:** 6.9
+**Tested up to:** 7.0.2
 **Require PHP:** 7.4
 **WC requires at least:** 7.0
-**WC tested up to:** 10.4.3
-**Stable tag:** 3.9.1
+**WC tested up to:** 10.9.4
+**Stable tag:** 3.10.0
 License: MIT
 License URI: http://opensource.org/licenses/MIT
 

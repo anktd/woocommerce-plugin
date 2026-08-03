@@ -3,17 +3,17 @@
  * Plugin Name: Bitcoin Payments - Blockonomics
  * Plugin URI: https://github.com/blockonomics/woocommerce-plugin
  * Description: Accept Bitcoin Payments on your WooCommerce-powered website with Blockonomics
- * Version: 3.9.1
+ * Version: 3.10.0
  * Author: Blockonomics
  * Author URI: https://www.blockonomics.co
  * License: MIT
  * Text Domain: blockonomics-bitcoin-payments
  * Domain Path: /languages/
  * Requires at least: 5.6
- * Tested up to: 6.9
+ * Tested up to: 7.0.2
  * Requires PHP: 7.4
  * WC requires at least: 7.0
- * WC tested up to: 10.4.3
+ * WC tested up to: 10.9.4
  * Requires Plugins: woocommerce
  */
 
@@ -509,6 +509,9 @@ function blockonomics_create_payment_page()
     if ( null === $wp_rewrite ) {
         $wp_rewrite = new \WP_Rewrite;
     }
+    if ( ! function_exists( 'wc_create_page' ) ) {
+        include_once(WC()->plugin_path().'/includes/admin/wc-admin-functions.php');
+    }
     wc_create_page(
         'payment',
         'woocommerce_payment_page_id',
@@ -534,7 +537,6 @@ function blockonomics_update_db_check() {
 }
 
 function blockonomics_run_db_updates($installed_ver){
-    global $wpdb;
     global $blockonomics_db_version;
     if (version_compare($installed_ver, '1.2', '<')){
         blockonomics_create_table();
@@ -546,12 +548,6 @@ function blockonomics_run_db_updates($installed_ver){
     if (version_compare($installed_ver, '1.5', '<')){
         blockonomics_create_table();
         blockonomics_update_primary_key();
-        // 6. MySQL 8+ only: add partial unique indexes for BTC/USDT
-        $mysql_version = $wpdb->get_var("SELECT VERSION()");
-        if (version_compare($mysql_version, '8.0.0', '>=')) {
-            $wpdb->query("CREATE UNIQUE INDEX unique_btc_address ON $table_name (address) WHERE crypto = 'BTC'");
-            $wpdb->query("CREATE UNIQUE INDEX unique_usdt_txid ON $table_name (txid) WHERE crypto = 'USDT' AND txid <> ''");
-        }
     }
     update_option( 'blockonomics_db_version', $blockonomics_db_version );
 }
@@ -616,6 +612,8 @@ function blockonomics_uninstall_hook() {
     delete_option('woocommerce_blockonomics_settings');
     delete_option('blockonomics_store_name');
     delete_option('blockonomics_enabled_cryptos');
+    delete_option('blockonomics_temp_wallet_id');
+    delete_option('blockonomics_temp_wallet_ids');
 
     global $wpdb;
     // drop blockonomics_orders & blockonomics_payments on uninstallation

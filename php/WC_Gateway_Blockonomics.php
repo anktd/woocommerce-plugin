@@ -32,6 +32,8 @@ class WC_Gateway_Blockonomics extends WC_Payment_Gateway
         $this->init_form_fields();
         $this->init_settings();
 
+        $this->settings['api_key'] = get_option('blockonomics_api_key', '');
+
         $this->title       = $this->get_option('title');
         $this->description = $this->get_option('description');
 

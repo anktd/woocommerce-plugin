@@ -1,56 +1,65 @@
 .bnomics-progress-bar {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin: 20px auto 0;
-    max-width: 640px;
-    position: relative;
+    align-items: flex-start;
+    margin: 24px auto 20px;
+    max-width: 600px;
 }
 
 .bnomics-progress-step {
-    width: 40px;
-    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 110px;
+    flex-shrink: 0;
+}
+
+.bnomics-progress-circle {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background-color: #e0e0e0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    color: #fff;
-    z-index: 9999;
-    font-size: 18px;
-    position: relative;
-    bottom: 14px;
-    transform: translateY(27px);
+    font-weight: 600;
+    font-size: 15px;
+    background: #fff;
+    color: #0c231a;
+    border: 1px solid #0c231a;
+    box-sizing: border-box;
 }
 
-.bnomics-progress-step.active {
-    background-color: #3fc47c;
+.bnomics-progress-step.active .bnomics-progress-circle {
+    background: #3fbf7f;
+    border-color: #3fbf7f;
+    color: #fff;
+}
+
+.bnomics-progress-step.done .bnomics-progress-circle {
+    background: #3fbf7f;
+    border-color: #3fbf7f;
+    color: #fff;
+}
+
+.bnomics-progress-label {
+    font-size: 12px;
+    color: #0c231a;
+    white-space: nowrap;
+}
+
+.bnomics-progress-step.active .bnomics-progress-label {
+    font-weight: 600;
 }
 
 .bnomics-progress-line {
-    flex-grow: 1;
-    height: 12px;
-    background-color: #e0e0e0;
-    position: relative;
+    flex: 1;
+    height: 2px;
+    background: #c8ddd2;
+    margin-top: 18px;
 }
 
-.bnomics-progress-line-inner {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    background-color: #3fc47c;
-}
-
-.bnomics-progress-bar .bnomics-progress-line:first-child .bnomics-progress-line-inner,
-.bnomics-progress-bar .bnomics-progress-line:nth-child(2) .bnomics-progress-line-inner {
-    width: 100%;
-}
-
-.bnomics-progress-bar .bnomics-progress-line:nth-child(3) .bnomics-progress-line-inner,
-.bnomics-progress-bar .bnomics-progress-line:last-child .bnomics-progress-line-inner {
-    width: 0%;
+.bnomics-progress-line.filled {
+    background: #3fbf7f;
 }
 
 .bnomics-welcome-header {
@@ -66,12 +75,13 @@
 .blockonomics-setup-wizard {
     max-width: 600px;
     margin: 0 auto;
-    background: #fff;
-    padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background: #eef6f1;
+    padding: 28px;
+    border-radius: 14px;
+    border: 1px solid #0c231a;
     position: relative;
     z-index: 1;
+    color: #0c231a;
 }
 
 .bnomics-wizard-heading {
@@ -81,13 +91,15 @@
     margin-bottom: 20px;
 }
 
-.bnomics-wizard-heading h2 {
-    font-size: 24px;
+.bnomics-wizard-heading h2,
+.bnomics-wizard-heading h3 {
+    font-size: 22px;
     margin: 0;
+    color: #0c231a;
 }
 
 .blockonomics-logo img {
-    max-width: 100px;
+    max-width: 110px;
     height: auto;
 }
 
@@ -99,13 +111,56 @@
     margin-bottom: 10px;
 }
 
-.blockonomics-setup-wizard input[type="submit"] {
+.blockonomics-setup-wizard a {
+    color: #1e8a5a;
+}
+
+.blockonomics-setup-wizard input[type="text"] {
+    background: #fff;
+    border: 1px solid #0c231a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-height: 40px;
+}
+
+.blockonomics-setup-wizard input[type="submit"],
+.blockonomics-setup-wizard .button-primary {
     margin-top: 20px;
+    background: #3fbf7f;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    padding: 6px 22px;
+    font-weight: 600;
+}
+
+.blockonomics-setup-wizard input[type="submit"]:hover,
+.blockonomics-setup-wizard input[type="submit"]:focus,
+.blockonomics-setup-wizard .button-primary:hover,
+.blockonomics-setup-wizard .button-primary:focus {
+    background: #35a96f;
+    color: #fff;
+}
+
+.bnomics-success-store {
+    margin: 8px 0 0;
+    font-size: 14px;
 }
 
 .bnomics-error-message {
-    color: #ff0000;
+    color: #c4341f;
     margin: 2px 0 15px;
     padding: 0;
     font-size: 14px;
+}
+
+@media (max-width: 480px) {
+    .bnomics-wizard-heading h2,
+    .bnomics-wizard-heading h3 {
+        font-size: 18px;
+    }
+
+    .blockonomics-logo img {
+        max-width: 72px;
+    }
 }

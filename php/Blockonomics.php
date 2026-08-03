@@ -405,7 +405,7 @@ class Blockonomics
         // woocommerce_cart_calculate_fees already applied crypto payment discount
         $total = (float) $wc_order->get_total();
         $order['expected_fiat'] = $total - $paid_fiat;
-        $order['currency'] = get_woocommerce_currency();
+        $order['currency'] = $wc_order->get_currency();
 
         // apply margin to price
         $margin = floatval(get_option('blockonomics_margin', 0));
@@ -500,10 +500,6 @@ class Blockonomics
 
     public function testSetup()
     {
-        // just clear these first, they will only be set again on success
-        delete_option("blockonomics_store_name");
-        delete_option("blockonomics_enabled_cryptos");
-
         $api_key = $this->get_api_key();
 
         if (empty($api_key)) {
@@ -743,8 +739,8 @@ class Blockonomics
         // woocommerce_cart_calculate_fees already applied bitcoin payment method discount
         $total = (float) $wc_order->get_total();
         $order['expected_fiat'] = $total - $paid_fiat;
-        $order['currency'] = get_woocommerce_currency();
-        if (get_woocommerce_currency() != 'BTC') {
+        $order['currency'] = $wc_order->get_currency();
+        if ($order['currency'] != 'BTC') {
             $responseObj = $this->get_price($order['currency'], $order['crypto']);
             if ($responseObj->response_code != 200 || empty($responseObj->price)) {
                 $error_msg = !empty($responseObj->response_message) ? $responseObj->response_message : __('Could not get price', 'blockonomics-bitcoin-payments');
@@ -795,7 +791,8 @@ class Blockonomics
     }
 
     public function create_new_order($order_id, $crypto){
-        $currency = get_woocommerce_currency();
+        $wc_order = new WC_Order($order_id);
+        $currency = $wc_order->get_currency();
 
         // Fetch address and price in parallel (or just address if currency is BTC)
         $api_results = $this->fetch_order_data_parallel($crypto, $currency);

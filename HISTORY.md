@@ -1,5 +1,11 @@
 == Changelog ==
 
+= 3.10.0  =
+* Added floating Save Changes button on the settings page
+* Added support for multicurrency stores
+* Setup wizard enhancements
+* Plugin activation via WP-CLI supported
+
 = 3.9.1  =
 * Added testmode support for simulated test payments via Blockonomics dashboard
 * Faster checkout page load with parallel API calls
