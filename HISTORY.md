@@ -1,5 +1,8 @@
 == Changelog ==
 
+= 3.10.1  =
+* Minor Fixes
+
 = 3.10.0  =
 * Added floating Save Changes button on the settings page
 * Added support for multicurrency stores
