@@ -250,33 +250,25 @@ class Blockonomics_Setup {
             return array('needs_store' => true);
         }
 
-        $wordpress_callback_url = $this->get_callback_url();
-        $base_url = preg_replace('/https?:\/\//', '', WC()->api_request_url('WC_Gateway_Blockonomics'));
-
-        // if multiple store matches, collect all
-        $exact_matches = array();
-        $partial_matches = array();
-
+        $secret = get_option('blockonomics_callback_secret');
+        $matching_stores = array();
         foreach ($stores as $store) {
-            // first we check for exact match
-            if ($store->http_callback === $wordpress_callback_url) {
-                $exact_matches[] = $store;
-            }
-            // Check for partial match - only secret or protocol differs
-            elseif (!empty($store->http_callback)) {
-                $store_base_url = preg_replace('/https?:\/\//', '', $store->http_callback);
-                if (strpos($store_base_url, $base_url) === 0) {
-                    $partial_matches[] = $store;
-                }
+            if (Blockonomics::store_matches_secret($store, $secret)) {
+                $matching_stores[] = $store;
             }
         }
-        //prefer exact match > partial match
-        if (!empty($exact_matches)){
-            $best_store = $this->select_best_store($exact_matches);
-            return $this->finalize_store_match($best_store, $api_key);
+        if (empty($matching_stores)) {
+            // No matching store found - need to create a new one
+            return array('needs_store' => true);
         }
-        if (!empty($partial_matches)){
-            $best_store = $this->select_best_store($partial_matches);
+
+        $best_store = $this->select_best_store($matching_stores);
+
+        // repair scheme-only drift (http <-> https) so callbacks reach the live scheme;
+        // never rewrite for path differences (WPML prefixes, subfolder installs)
+        $wordpress_callback_url = $this->get_callback_url();
+        if ($best_store->http_callback !== $wordpress_callback_url
+            && preg_replace('/^https?/', '', $best_store->http_callback) === preg_replace('/^https?/', '', $wordpress_callback_url)) {
             $update_response = wp_remote_post(
                 Blockonomics::BASE_URL . '/api/v2/stores/' . $best_store->id,
                 array(
@@ -300,11 +292,9 @@ class Blockonomics_Setup {
             if ($update_error) {
                 return $update_error;
             }
-
-            return $this->finalize_store_match($best_store, $api_key);
         }
-        // No matching store found - need to create a new one
-        return array('needs_store' => true);
+
+        return $this->finalize_store_match($best_store, $api_key);
     }
 
     /*
@@ -483,7 +473,7 @@ class Blockonomics_Setup {
         }
         $api_key = get_option('blockonomics_api_key');
         $callback_url = $this->get_callback_url();
-        $store_lookup = $this->find_store_by_callback($api_key, $callback_url);
+        $store_lookup = $this->find_store_by_callback($api_key);
         if (isset($store_lookup['error'])) {
             return $store_lookup;
         }
@@ -546,13 +536,12 @@ class Blockonomics_Setup {
         return $this->finalize_store_match($created_store, $api_key);
     }
 
-    /* Find a store by its callback URL
+    /* Find this install's store by callback secret
      * selects best store when multiple matches exist
      * @param string $api_key The API key for Blockonomics
-     * @param string $callback_url The callback URL to search for
      * @return array Result containing a store object/null, or an error
      */
-    private function find_store_by_callback($api_key, $callback_url) {
+    private function find_store_by_callback($api_key) {
         $stores_result = $this->fetch_stores_with_wallets($api_key);
         if (isset($stores_result['error'])) {
             return $stores_result;
@@ -563,9 +552,10 @@ class Blockonomics_Setup {
         }
 
         // collect all matching stores
+        $secret = get_option('blockonomics_callback_secret');
         $matching_stores = array();
         foreach ($stores_result['stores'] as $store) {
-            if ($store->http_callback === $callback_url) {
+            if (Blockonomics::store_matches_secret($store, $secret)) {
                 $matching_stores[] = $store;
             }
         }
