@@ -450,6 +450,27 @@ class Blockonomics
 
     }
 
+    /* Check if a store's registered http_callback carries this install's callback secret.
+     *
+     * @param object $store store from dashboard
+     * @param string $secret instance's secret
+     * @return bool
+     */
+    public static function store_matches_secret($store, $secret) {
+        if (!is_string($secret) || $secret === '') {
+            return false;
+        }
+        if (!isset($store->http_callback) || !is_string($store->http_callback)) {
+            return false;
+        }
+        $query = parse_url($store->http_callback, PHP_URL_QUERY);
+        if (!is_string($query)) {
+            return false;
+        }
+        parse_str($query, $params);
+        return isset($params['secret']) && $params['secret'] === $secret;
+    }
+
     /* Find store with exact callback URL match, if multiple matches exist, prefers store with wallets attached
      *
      * @param array $stores List of stores from API

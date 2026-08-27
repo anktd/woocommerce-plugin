@@ -355,6 +355,44 @@ class BlockonomicsTest extends TestCase {
         $this->assertTrue(true, "USDT: Should identify payment by txid, not address");
     }
 
+    // Secret-based store matching (WPML/Polylang fix): the secret is the matching
+    // key, so language-prefixed URLs match while foreign secrets never do.
+    public function testStoreMatchesSecretAcceptsAnyUrlShapeWithOurSecret() {
+        $secret = '2c5a71c1367e23a6b04a20544d0d4a4601c34881';
+
+        $plain = (object) ['http_callback' => 'https://example.com/wc-api/WC_Gateway_Blockonomics/?secret=' . $secret];
+        $this->assertTrue(Blockonomics::store_matches_secret($plain, $secret), "Canonical URL with our secret should match");
+
+        $prefixed = (object) ['http_callback' => 'https://example.com/de/wc-api/WC_Gateway_Blockonomics/?secret=' . $secret];
+        $this->assertTrue(Blockonomics::store_matches_secret($prefixed, $secret), "Language-prefixed URL should still match by secret");
+
+        $query_form = (object) ['http_callback' => 'https://example.com/?wc-api=WC_Gateway_Blockonomics&secret=' . $secret];
+        $this->assertTrue(Blockonomics::store_matches_secret($query_form, $secret), "Query-form (plain permalink) URL should match");
+    }
+
+    public function testStoreMatchesSecretRejectsForeignAndMalformedInput() {
+        $secret = '2c5a71c1367e23a6b04a20544d0d4a4601c34881';
+
+        $other_install = (object) ['http_callback' => 'https://example.com/fr/wc-api/WC_Gateway_Blockonomics/?secret=05ee022fbe39d6ddf57f778570bee53829202f70'];
+        $this->assertFalse(Blockonomics::store_matches_secret($other_install, $secret), "Subfolder install with its own secret must never match");
+
+        $store = (object) ['http_callback' => 'https://example.com/wc-api/WC_Gateway_Blockonomics/?secret=' . $secret];
+        $this->assertFalse(Blockonomics::store_matches_secret($store, ''), "Empty local secret must never match");
+        $this->assertFalse(Blockonomics::store_matches_secret($store, null), "Non-string local secret must never match");
+
+        $array_secret = (object) ['http_callback' => 'https://example.com/wc-api/?secret[]=' . $secret];
+        $this->assertFalse(Blockonomics::store_matches_secret($array_secret, $secret), "secret[] array param must not match or error");
+
+        $no_query = (object) ['http_callback' => 'https://example.com/wc-api/WC_Gateway_Blockonomics/'];
+        $this->assertFalse(Blockonomics::store_matches_secret($no_query, $secret), "URL without query string must not match");
+
+        $no_callback = (object) ['name' => 'store-without-callback'];
+        $this->assertFalse(Blockonomics::store_matches_secret($no_callback, $secret), "Store without http_callback must not match or error");
+
+        $non_string = (object) ['http_callback' => 42];
+        $this->assertFalse(Blockonomics::store_matches_secret($non_string, $secret), "Non-string http_callback must not match or error");
+    }
+
     protected function tearDown(): void {
         wp::tearDown();
         parent::tearDown();
