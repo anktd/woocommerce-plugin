@@ -246,6 +246,21 @@ class Blockonomics
         return $headers;
     }
 
+    /* Value sent as match_callback: the secret identifies this install's store
+     * regardless of URL shape (WPML/Polylang language prefixes). Null when no
+     * secret is set — an empty secret would match any store.
+     *
+     * @return string|null
+     */
+    private function get_match_callback()
+    {
+        $secret = get_option("blockonomics_callback_secret");
+        if (!is_string($secret) || $secret === '') {
+            return null;
+        }
+        return 'secret=' . $secret;
+    }
+
     /* Build URL for api/new_address
      *
      * @param string $crypto Cryptocurrency code (btc, bch, usdt)
@@ -253,13 +268,10 @@ class Blockonomics
      */
     private function build_new_address_url($crypto)
     {
-        $secret = get_option("blockonomics_callback_secret");
-        $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        $callback_url = add_query_arg('secret', $secret, $api_url);
-
         $params = array();
-        if ($callback_url) {
-            $params['match_callback'] = $callback_url;
+        $match_callback = $this->get_match_callback();
+        if ($match_callback) {
+            $params['match_callback'] = $match_callback;
         }
         if ($crypto === 'usdt') {
             $params['crypto'] = "USDT";
@@ -1444,16 +1456,16 @@ class Blockonomics
             exit;
         }
 
-        // Prepare callback URL and monitoring request
-        $callback_secret = get_option("blockonomics_callback_secret");
-        $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        $callback_url = add_query_arg('secret', $callback_secret, $api_url);
+        // Prepare monitoring request
         $monitor_url = self::BASE_URL . '/api/monitor_tx';
         $post_data = array(
             'txhash' => $txhash,
             'crypto' => strtoupper($crypto),
-            'match_callback' => $callback_url,
         );
+        $match_callback = $this->get_match_callback();
+        if ($match_callback) {
+            $post_data['match_callback'] = $match_callback;
+        }
 
         // Update order with txhash
         if (!$this->update_order_txhash($order_id, $crypto, $txhash)) {
