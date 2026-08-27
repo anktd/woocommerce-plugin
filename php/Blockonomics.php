@@ -122,8 +122,7 @@ class Blockonomics
             return $this->setup_error($stores_result['error']);
         }
 
-        $callback_url = $this->get_callback_url();
-        $matching_store = $this->findExactMatchingStore($stores_result['stores'], $callback_url);
+        $matching_store = $this->findMatchingStore($stores_result['stores']);
 
         // Result currencies
         $checkout_currencies = [];
@@ -483,16 +482,16 @@ class Blockonomics
         return isset($params['secret']) && $params['secret'] === $secret;
     }
 
-    /* Find store with exact callback URL match, if multiple matches exist, prefers store with wallets attached
+    /* Find this install's store by callback secret, if multiple matches exist, prefers store with wallets attached
      *
      * @param array $stores List of stores from API
-     * @param string $callback_url The callback URL to match
      * @return object|null Matching store or null
      */
-    private function findExactMatchingStore($stores, $callback_url) {
+    private function findMatchingStore($stores) {
+        $secret = get_option("blockonomics_callback_secret");
         $best_store = null;
         foreach ($stores as $store) {
-            if ($store->http_callback === $callback_url) {
+            if (self::store_matches_secret($store, $secret)) {
                 // prefer store with wallets (so checkout works)
                 if (!$best_store || (!empty($store->wallets) && empty($best_store->wallets))) {
                     $best_store = $store;
@@ -544,8 +543,7 @@ class Blockonomics
             return $this->setup_error($stores_result['error']);
         }
 
-        $callback_url = $this->get_callback_url();
-        $matching_store = $this->findExactMatchingStore($stores_result['stores'], $callback_url);
+        $matching_store = $this->findMatchingStore($stores_result['stores']);
 
         if (!$matching_store) {
             return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">new store</a> with the callback URL shown in advanced settings', 'blockonomics-bitcoin-payments'));
@@ -581,12 +579,6 @@ class Blockonomics
 
     private function setup_error($msg) {
         return ['error' => $msg];
-    }
-
-    private function get_callback_url() {
-        $callback_secret = get_option("blockonomics_callback_secret");
-        $api_url = WC()->api_request_url('WC_Gateway_Blockonomics');
-        return add_query_arg('secret', $callback_secret, $api_url);
     }
 
     private function update_store_name_option($store_name) {
