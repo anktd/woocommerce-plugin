@@ -1357,23 +1357,22 @@ class Blockonomics
     }
 
     /**
-     * Check if a transaction ID exists in the blockonomics_payments table.
+     * Get the payment row a txid is bound to, if any.
      *
-     * @param string $txid The transaction ID to check.
-     * @return bool True if exists, false otherwise.
+     * @param string $txid The transaction ID to look up.
+     * @return array|null Row with order_id and payment_status, or null.
      */
-    function txid_exists($txid) {
+    function get_payment_by_txid($txid) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'blockonomics_payments';
 
-        $exists = $wpdb->get_var(
+        return $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM $table_name WHERE txid = %s",
+                "SELECT order_id, payment_status FROM $table_name WHERE txid = %s",
                 $txid
-            )
+            ),
+            ARRAY_A
         );
-
-        return ($exists > 0);
     }
 
     /**
@@ -1388,29 +1387,17 @@ class Blockonomics
         global $wpdb;
         $table_name = $wpdb->prefix . 'blockonomics_payments';
 
-        // Check if row exists and txid is empty
-        $row = $wpdb->get_row(
+        // Empty-txid condition lives in the UPDATE itself so concurrent finishes cannot cross-bind
+        $updated = $wpdb->query(
             $wpdb->prepare(
-                "SELECT address FROM $table_name WHERE order_id = %d AND crypto = %s AND (txid IS NULL OR txid = '')",
+                "UPDATE $table_name SET txid = %s WHERE order_id = %d AND crypto = %s AND (txid IS NULL OR txid = '')",
+                $txid,
                 $order_id,
                 $crypto
             )
         );
 
-        if ($row) {
-            // Update txid for the matching row
-            $updated = $wpdb->update(
-                $table_name,
-                [ 'txid' => $txid ],
-                [ 'order_id' => $order_id, 'crypto' => $crypto ],
-                [ '%s' ],
-                [ '%d', '%s' ]
-            );
-            return ($updated !== false);
-        }
-
-        // No matching row found or txid already exists
-        return false;
+        return ($updated === 1);
     }
 
     /**
@@ -1440,16 +1427,63 @@ class Blockonomics
     public function process_token_order($order_id, $crypto, $txhash) {
         $wc_order = wc_get_order($order_id);
 
-        // Check if the txhash has already been used for another order
-        if ($this->txid_exists($txhash)) {
+        if (!is_string($txhash) || $txhash === '') {
+            $msg = __('Missing transaction hash!', 'blockonomics-bitcoin-payments');
+            $wc_order->add_order_note($msg);
+            $this->display_order_error($msg, $order_id, $txhash);
+            exit;
+        }
+
+        // Reject only when the hash is bound to a DIFFERENT order;
+        // same-order re-submits (customer reloading the redirect URL) are idempotent
+        $existing = $this->get_payment_by_txid($txhash);
+        if ($existing && (int)$existing['order_id'] !== (int)$order_id) {
             $msg = __('Transaction already exists!', 'blockonomics-bitcoin-payments');
             $wc_order->add_order_note("$msg<br/>txhash: $txhash");
             $this->display_order_error($msg, $order_id, $txhash);
             exit;
         }
 
-        // Prepare monitoring request
-        $monitor_url = self::BASE_URL . '/api/monitor_tx';
+        if (!$existing) {
+            if (!$this->update_order_txhash($order_id, $crypto, $txhash)) {
+                // benign race: a parallel request of the same order may have just bound it
+                $recheck = $this->get_payment_by_txid($txhash);
+                if (!$recheck || (int)$recheck['order_id'] !== (int)$order_id) {
+                    $msg = __('Error updating transaction!', 'blockonomics-bitcoin-payments');
+                    $wc_order->add_order_note("$msg<br/>txhash: $txhash");
+                    $this->display_order_error($msg, $order_id, $txhash);
+                    exit;
+                }
+                $existing = $recheck;
+            }
+        }
+        if ($existing && $existing['payment_status'] > 0) {
+            // Monitoring already active — nothing to redo
+            return;
+        }
+
+        // Monitor transaction via Blockonomics API (first attempt, or retry after an earlier failure)
+        $monitor = $this->monitor_txhash($txhash, $crypto);
+        if ($monitor['code'] != 200) {
+            $msg = __('Error monitoring transaction!', 'blockonomics-bitcoin-payments');
+            $wc_order->add_order_note("$msg<br/>txhash: $txhash<br/>Error: " . $monitor['message']);
+            $this->display_order_error($msg, $order_id, $txhash, $monitor['message']);
+            exit;
+        }
+
+        $this->mark_monitoring_active($order_id, $crypto, $txhash);
+        $this->save_transaction($txhash, $wc_order);
+        $wc_order->add_order_note(__('Invoice will be automatically marked as paid on transaction confirm by the network. No further action is required.', 'blockonomics-bitcoin-payments'));
+    }
+
+    /**
+     * Submit a txhash to the monitor_tx API.
+     *
+     * @param string $txhash Transaction hash.
+     * @param string $crypto Crypto code (e.g., 'usdt').
+     * @return array ['code' => int|string, 'message' => string]
+     */
+    private function monitor_txhash($txhash, $crypto) {
         $post_data = array(
             'txhash' => $txhash,
             'crypto' => strtoupper($crypto),
@@ -1459,35 +1493,33 @@ class Blockonomics
             $post_data['match_callback'] = $match_callback;
         }
 
-        // Update order with txhash
-        if (!$this->update_order_txhash($order_id, $crypto, $txhash)) {
-            $msg = __('Error updating transaction!', 'blockonomics-bitcoin-payments');
-            $wc_order->add_order_note("$msg<br/>txhash: $txhash");
-            $this->display_order_error($msg, $order_id, $txhash);
-            exit;
-        }
-
-        // Monitor transaction via Blockonomics API
-        $response = $this->post($monitor_url, $this->api_key, wp_json_encode($post_data), 8);
-        $response_code = wp_remote_retrieve_response_code($response);
+        $response = $this->post(self::BASE_URL . '/api/monitor_tx', $this->api_key, wp_json_encode($post_data), 8);
         $body = wp_remote_retrieve_body($response);
-        $response_message = '';
+        $message = '';
         if ($body) {
             $body_obj = json_decode($body);
             if (isset($body_obj->message)) {
-                $response_message = $body_obj->message;
+                $message = $body_obj->message;
             }
         }
+        return array('code' => wp_remote_retrieve_response_code($response), 'message' => $message);
+    }
 
-        if ($response_code != 200) {
-            $msg = __('Error monitoring transaction!', 'blockonomics-bitcoin-payments');
-            $wc_order->add_order_note("$msg<br/>txhash: $txhash<br/>Error: $response_message");
-            $this->display_order_error($msg, $order_id, $txhash, $response_message);
-            exit;
-        }
-
-        $this->save_transaction($txhash, $wc_order);
-        $wc_order->add_order_note(__('Invoice will be automatically marked as paid on transaction confirm by the network. No further action is required.', 'blockonomics-bitcoin-payments'));
+    /**
+     * Advance payment_status 0 -> 1 once monitoring is registered; guarded so
+     * a callback that already advanced the row is never downgraded.
+     */
+    private function mark_monitoring_active($order_id, $crypto, $txhash) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'blockonomics_payments';
+        $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE $table_name SET payment_status = 1 WHERE order_id = %d AND crypto = %s AND txid = %s AND payment_status = 0",
+                $order_id,
+                $crypto,
+                $txhash
+            )
+        );
     }
 
 }
