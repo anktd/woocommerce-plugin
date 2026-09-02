@@ -111,6 +111,61 @@ function blockonomics_woocommerce_init()
 
     add_action( 'admin_enqueue_scripts', 'blockonomics_enqueue_custom_admin_style' );
     add_action( 'wp_ajax_test_setup', 'blockonomics_test_setup' );
+    add_action( 'add_meta_boxes', 'blockonomics_add_attach_hash_meta_box', 10, 2 );
+    add_action( 'woocommerce_process_shop_order_meta', 'blockonomics_handle_attach_hash' );
+
+    // Recovery for USDT orders whose txhash never reached the plugin
+    // (window closed before redirect, external-wallet payment, gas replacement)
+    function blockonomics_add_attach_hash_meta_box($screen_id, $post_or_order) {
+        $order = ($post_or_order instanceof WC_Order) ? $post_or_order : wc_get_order($post_or_order);
+        if (!$order || $order->get_payment_method() !== 'blockonomics') {
+            return;
+        }
+        if ($order->is_paid()) {
+            return;
+        }
+        $blockonomics = new Blockonomics();
+        $row = $blockonomics->get_order_by_id_and_crypto($order->get_id(), 'usdt');
+        if (!$row || $row['payment_status'] == 2) {
+            return;
+        }
+        add_meta_box(
+            'blockonomics-attach-hash',
+            __('Blockonomics — Attach USDT txhash', 'blockonomics-bitcoin-payments'),
+            function() use ($row) {
+                wp_nonce_field('blockonomics_attach_hash', 'blockonomics_attach_hash_nonce');
+                if (!empty($row['txid'])) {
+                    echo '<p style="word-break:break-all;">' . esc_html__('Current hash:', 'blockonomics-bitcoin-payments') . ' <code>' . esc_html($row['txid']) . '</code></p>';
+                }
+                echo '<input type="text" name="blockonomics_attach_txhash" style="width:100%" placeholder="0x…" />';
+                echo '<p class="description">' . esc_html__('Paste the on-chain transaction hash, then click Update. The result is recorded as an order note.', 'blockonomics-bitcoin-payments') . '</p>';
+            },
+            $screen_id,
+            'side'
+        );
+    }
+
+    function blockonomics_handle_attach_hash($order_id) {
+        if (empty($_POST['blockonomics_attach_txhash'])) {
+            return;
+        }
+        if (!isset($_POST['blockonomics_attach_hash_nonce'])
+            || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['blockonomics_attach_hash_nonce'])), 'blockonomics_attach_hash')
+            || !current_user_can('edit_shop_orders')) {
+            return;
+        }
+        $txhash = sanitize_text_field(wp_unslash($_POST['blockonomics_attach_txhash']));
+        $blockonomics = new Blockonomics();
+        $result = $blockonomics->attach_txhash($order_id, $txhash);
+        $wc_order = wc_get_order($order_id);
+        if ($wc_order) {
+            if (isset($result['error'])) {
+                $wc_order->add_order_note(__('Attach txhash failed: ', 'blockonomics-bitcoin-payments') . $result['error']);
+            } else {
+                $wc_order->add_order_note($result['success'] . '<br/>txhash: ' . $txhash);
+            }
+        }
+    }
 
     function bnomics_exclude_pages( $exclude ) {
         $exclude[] = wc_get_page_id( 'payment' );

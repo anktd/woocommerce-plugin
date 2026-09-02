@@ -1507,6 +1507,65 @@ class Blockonomics
     }
 
     /**
+     * Admin recovery: attach (or rebind) a USDT txhash to an order whose hash
+     * never reached the plugin (window closed, external-wallet payment, gas
+     * replacement). Never touches finalized rows.
+     *
+     * @param int    $order_id WooCommerce order ID.
+     * @param string $txhash   Transaction hash supplied by the merchant.
+     * @return array ['success' => string] or ['error' => string]
+     */
+    public function attach_txhash($order_id, $txhash) {
+        $txhash = trim($txhash);
+        if (!preg_match('/^0x[a-fA-F0-9]{64}$/', $txhash)) {
+            return array('error' => __('Invalid transaction hash.', 'blockonomics-bitcoin-payments'));
+        }
+
+        $row = $this->get_order_by_id_and_crypto($order_id, 'usdt');
+        if (!$row) {
+            return array('error' => __('No USDT payment found for this order.', 'blockonomics-bitcoin-payments'));
+        }
+        if ($row['payment_status'] == 2) {
+            return array('error' => __('Payment is already finalized; hash not changed.', 'blockonomics-bitcoin-payments'));
+        }
+
+        $wc_order = wc_get_order($order_id);
+        if ($wc_order && $wc_order->is_paid()) {
+            return array('error' => __('Order is already paid; hash not changed.', 'blockonomics-bitcoin-payments'));
+        }
+        if ($row['txid'] !== $txhash) {
+            $bound = $this->get_payment_by_txid($txhash);
+            if ($bound) {
+                return array('error' => __('This transaction hash is already used by another order.', 'blockonomics-bitcoin-payments'));
+            }
+            // one guarded UPDATE covers first-attach and rebind; the status guard
+            // keeps a concurrent final callback from having its row rewritten
+            global $wpdb;
+            $bound_ok = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE {$wpdb->prefix}blockonomics_payments SET txid = %s WHERE order_id = %d AND crypto = 'usdt' AND (txid IS NULL OR txid = '' OR txid = %s) AND payment_status < 2",
+                    $txhash, $order_id, $row['txid']
+                )
+            );
+            if ($bound_ok !== 1) {
+                return array('error' => __('Could not attach the transaction hash.', 'blockonomics-bitcoin-payments'));
+            }
+            if (!empty($row['txid'])) {
+                $wc_order->add_order_note('USDT txhash replaced: ' . $row['txid'] . ' &rarr; ' . $txhash);
+            }
+        }
+
+        $monitor = $this->monitor_txhash($txhash, 'usdt');
+        if ($monitor['code'] != 200) {
+            return array('error' => __('Error monitoring transaction!', 'blockonomics-bitcoin-payments') . ' ' . $monitor['message']);
+        }
+
+        $this->mark_monitoring_active($order_id, 'usdt', $txhash);
+        $this->save_transaction($txhash, $wc_order);
+        return array('success' => __('Transaction hash attached. The order will complete automatically on network confirmation.', 'blockonomics-bitcoin-payments'));
+    }
+
+    /**
      * Submit a txhash to the monitor_tx API.
      *
      * @param string $txhash Transaction hash.
