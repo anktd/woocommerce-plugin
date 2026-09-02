@@ -264,11 +264,12 @@ class Blockonomics_Setup {
 
         $best_store = $this->select_best_store($matching_stores);
 
-        // repair scheme-only drift (http <-> https) so callbacks reach the live scheme;
-        // never rewrite for path differences (WPML prefixes, subfolder installs)
+        // repair http -> https drift only (never downgrade to http, never rewrite
+        // for path differences — WPML prefixes, subfolder installs)
         $wordpress_callback_url = $this->get_callback_url();
-        if ($best_store->http_callback !== $wordpress_callback_url
-            && preg_replace('/^https?/', '', $best_store->http_callback) === preg_replace('/^https?/', '', $wordpress_callback_url)) {
+        if (strpos($best_store->http_callback, 'http://') === 0
+            && strpos($wordpress_callback_url, 'https://') === 0
+            && substr($best_store->http_callback, 7) === substr($wordpress_callback_url, 8)) {
             $update_response = wp_remote_post(
                 Blockonomics::BASE_URL . '/api/v2/stores/' . $best_store->id,
                 array(
