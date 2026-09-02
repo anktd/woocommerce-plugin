@@ -377,6 +377,69 @@ class BlockonomicsTest extends TestCase {
         $this->assertFalse(Blockonomics::store_matches_secret($non_string, $secret), "Non-string http_callback must not match or error");
     }
 
+    // Invariant: a final (status 2) row is never changed by a further callback —
+    // covers both "same callback twice changes nothing" and "final never downgrades".
+    public function testFinalOrderNeverChangedByFurtherCallbacks() {
+        $final_order = [
+            'order_id' => 11,
+            'crypto' => 'usdt',
+            'txid' => '0xabc',
+            'payment_status' => 2,
+            'paid_satoshi' => 100000,
+            'expected_satoshi' => 100000,
+            'expected_fiat' => 100,
+        ];
+
+        $blockonomics = new TestableBlockonomics();
+        $wc_order = m::mock('WC_Order');
+        // any wc_order mutation would fail the test (no expectations set)
+
+        foreach ([0, 1, 2, 6] as $callback_status) {
+            $result = $blockonomics->update_paid_amount($callback_status, 999999, $final_order, $wc_order);
+            $this->assertEquals($final_order, $result, "Final order must be unchanged for callback status $callback_status");
+        }
+        m::close();
+    }
+
+    // Invariant: the txhash bind carries the empty-txid condition inside the UPDATE
+    // itself (single atomic statement), so concurrent finishes cannot cross-bind.
+    public function testTxhashBindIsAtomic() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+
+        $captured_sql = '';
+        $wpdb->shouldReceive('prepare')
+            ->once()
+            ->andReturnUsing(function($sql, ...$args) use (&$captured_sql) {
+                $captured_sql = $sql;
+                return $sql;
+            });
+        $wpdb->shouldReceive('query')->once()->andReturn(1);
+
+        $blockonomics = new TestableBlockonomics();
+        $result = $blockonomics->update_order_txhash(7, 'usdt', '0xdef');
+
+        $this->assertTrue($result, "Bind affecting exactly one row must report success");
+        $this->assertStringStartsWith('UPDATE', trim($captured_sql), "Bind must be a single UPDATE statement");
+        $this->assertStringContainsString("(txid IS NULL OR txid = '')", $captured_sql, "Empty-txid condition must be inside the UPDATE's WHERE");
+        m::close();
+    }
+
+    // Invariant: bind reports failure when no row was bound (0 rows affected),
+    // e.g. the row was already bound by a concurrent request.
+    public function testTxhashBindFailsWhenNoRowBound() {
+        global $wpdb;
+        $wpdb = m::mock('wpdb');
+        $wpdb->prefix = 'wp_';
+        $wpdb->shouldReceive('prepare')->once()->andReturn('sql');
+        $wpdb->shouldReceive('query')->once()->andReturn(0);
+
+        $blockonomics = new TestableBlockonomics();
+        $this->assertFalse($blockonomics->update_order_txhash(7, 'usdt', '0xdef'));
+        m::close();
+    }
+
     protected function tearDown(): void {
         wp::tearDown();
         parent::tearDown();
