@@ -269,12 +269,17 @@ class BlockonomicsTest extends TestCase {
             'payment_status' => 2,
             'currency' => 'USD',
             'expected_fiat' => 100,
-            'expected_satoshi' => 100000
+            'expected_satoshi' => 100000,
+            'paid_satoshi' => null,
+            'paid_fiat' => null
         ];
 
         $blockonomics = new TestableBlockonomics();
         $blockonomics->update_order($order);
 
+        $set = substr($captured, 0, strpos($captured, ' WHERE '));
+        $this->assertStringContainsString('`paid_satoshi` = NULL', $set, "Unset amounts stay SQL NULL, not ''");
+        $this->assertStringNotContainsString("`paid_fiat` = ''", $set, "Unset amounts stay SQL NULL, not ''");
         $where = substr($captured, strpos($captured, ' WHERE '));
         $this->assertStringContainsString("`address` = 'bc1qtest123address'", $where, "BTC: Should identify payment by address");
         $this->assertStringNotContainsString('`txid`', $where, "BTC: txid must not be in the WHERE clause");

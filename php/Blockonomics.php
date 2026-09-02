@@ -989,7 +989,8 @@ class Blockonomics
 
         $set = array();
         foreach ($order as $col => $val) {
-            $set[] = $wpdb->prepare('`' . $col . '` = %s', $val);
+            // keep SQL NULL for unset amounts (fresh rows), as $wpdb->update() did
+            $set[] = is_null($val) ? '`' . $col . '` = NULL' : $wpdb->prepare('`' . $col . '` = %s', $val);
         }
 
         // final rows are immutable: they are written exactly once, by the
