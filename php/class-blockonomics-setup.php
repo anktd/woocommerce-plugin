@@ -245,24 +245,11 @@ class Blockonomics_Setup {
             return $stores_result;
         }
 
-        $stores = $stores_result['stores'];
-        if (empty($stores)) {
-            return array('needs_store' => true);
-        }
-
-        $secret = get_option('blockonomics_callback_secret');
-        $matching_stores = array();
-        foreach ($stores as $store) {
-            if (Blockonomics::store_matches_secret($store, $secret)) {
-                $matching_stores[] = $store;
-            }
-        }
-        if (empty($matching_stores)) {
+        $best_store = Blockonomics::findMatchingStore($stores_result['stores']);
+        if (!$best_store) {
             // No matching store found - need to create a new one
             return array('needs_store' => true);
         }
-
-        $best_store = $this->select_best_store($matching_stores);
 
         // repair http -> https drift only (never downgrade to http, never rewrite
         // for path differences — WPML prefixes, subfolder installs)
@@ -538,7 +525,6 @@ class Blockonomics_Setup {
     }
 
     /* Find this install's store by callback secret
-     * selects best store when multiple matches exist
      * @param string $api_key The API key for Blockonomics
      * @return array Result containing a store object/null, or an error
      */
@@ -548,72 +534,7 @@ class Blockonomics_Setup {
             return $stores_result;
         }
 
-        if (empty($stores_result['stores'])) {
-            return array('store' => null);
-        }
-
-        // collect all matching stores
-        $secret = get_option('blockonomics_callback_secret');
-        $matching_stores = array();
-        foreach ($stores_result['stores'] as $store) {
-            if (Blockonomics::store_matches_secret($store, $secret)) {
-                $matching_stores[] = $store;
-            }
-        }
-        if (empty($matching_stores)){
-            return array('store' => null);
-        }
-        //always return best store from matches
-        return array('store' => $this->select_best_store($matching_stores));
-    }
-
-    /*
-     * Select the best store from a list of matching stores
-     * determine which store to select based on config
-     * @param array $stores Array of store objects
-     * @return object Best store from the list
-     */
-    private function select_best_store($stores) {
-        if (count($stores) === 1) {
-            return $stores[0];
-        }
-
-        $best_store = $stores[0];
-        $best_score = $this->score_store($stores[0]);
-
-        for ($i = 1; $i < count($stores); $i++) {
-            $score = $this->score_store($stores[$i]);
-            if ($score > $best_score) {
-                $best_score = $score;
-                $best_store = $stores[$i];
-            }
-        }
-        return $best_store;
-    }
-
-    /*
-     * KEY IDEA is to select store with enabled crypto rather than store w/o any crypto enabled and empty string named store
-     * This is so that checkout dont break even when test setup is sucessful. Very edge case type thing but was reported by merchants.
-     * Score a store based on its configuration quality
-     * Higher score = better configured store
-     * Scoring:
-     * - Has wallets attached: +10 (only practical requirement as otherwise the checkout breaks)
-     * - Has a non-empty name: +1 (tie-breaker only, since unnamed store can be created by multiple clicks on setup wizard)
-     * @param object $store Store object with wallets property
-     * @return int Score value
-     */
-    private function score_store($store) {
-        $score = 0;
-        //  crypto/wallets enabled? +10 (this is only thing we are concerned about)
-        if (!empty($store->wallets)) {
-            $score += 10;
-        }
-        // has a non-empty name: +1 (this is never used but we still account for it)
-        $name = trim($store->name ?? '');
-        if (!empty($name)) {
-            $score += 1;
-        }
-        return $score;
+        return array('store' => Blockonomics::findMatchingStore($stores_result['stores']));
     }
 
     /*

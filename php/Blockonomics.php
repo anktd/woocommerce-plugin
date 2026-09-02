@@ -122,7 +122,7 @@ class Blockonomics
             return $this->setup_error($stores_result['error']);
         }
 
-        $matching_store = $this->findMatchingStore($stores_result['stores']);
+        $matching_store = self::findMatchingStore($stores_result['stores']);
 
         // Result currencies
         $checkout_currencies = [];
@@ -487,7 +487,7 @@ class Blockonomics
      * @param array $stores List of stores from API
      * @return object|null Matching store or null
      */
-    private function findMatchingStore($stores) {
+    public static function findMatchingStore($stores) {
         $secret = get_option("blockonomics_callback_secret");
         $best_store = null;
         foreach ($stores as $store) {
@@ -543,7 +543,7 @@ class Blockonomics
             return $this->setup_error($stores_result['error']);
         }
 
-        $matching_store = $this->findMatchingStore($stores_result['stores']);
+        $matching_store = self::findMatchingStore($stores_result['stores']);
 
         if (!$matching_store) {
             return $this->setup_error(__('Please add a <a href="https://www.blockonomics.co/dashboard#/store" target="_blank">new store</a> with the callback URL shown in advanced settings', 'blockonomics-bitcoin-payments'));
