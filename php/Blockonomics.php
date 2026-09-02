@@ -1049,22 +1049,23 @@ class Blockonomics
     public function update_order($order){
         global $wpdb;
         $table_name = $wpdb->prefix . 'blockonomics_payments';
+        $key = (strtolower($order['crypto']) === 'usdt') ? 'txid' : 'address';
 
-        if (strtolower($order['crypto']) === 'usdt') {
-          $where = array(
-              'order_id' => $order['order_id'],
-              'crypto' => $order['crypto'],
-              'txid' => $order['txid']
-          );
-        } else{
-          $where = array(
-              'order_id' => $order['order_id'],
-              'crypto' => $order['crypto'],
-              'address' => $order['address']
-          );
-      }
+        $set = array();
+        foreach ($order as $col => $val) {
+            $set[] = $wpdb->prepare('`' . $col . '` = %s', $val);
+        }
 
-      $wpdb->update($table_name, $order, $where);
+        // final rows are immutable: they are written exactly once, by the
+        // winning claim_final_status(); any later write must not touch them
+        $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE $table_name SET " . implode(', ', $set) . " WHERE order_id = %d AND crypto = %s AND `$key` = %s AND payment_status < 2",
+                $order['order_id'],
+                $order['crypto'],
+                $order[$key]
+            )
+        );
     }
 
     // Check and update the crypto order or create a new order
@@ -1198,15 +1199,44 @@ class Blockonomics
         return $order;
     }
 
+    /**
+     * Atomically claim the final (status 2) transition for this payment row.
+     * Two concurrent final callbacks can both pass the in-memory status check;
+     * only the one whose guarded UPDATE affects a row may credit the order.
+     */
+    private function claim_final_status($order) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'blockonomics_payments';
+        $key = (strtolower($order['crypto']) === 'usdt') ? 'txid' : 'address';
+        // the claim persists the paid amounts too: the winning callback's values
+        // land atomically with the final status, and losers write nothing
+        $claimed = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE $table_name SET payment_status = 2, paid_satoshi = %s, paid_fiat = %s, txid = %s WHERE order_id = %d AND crypto = %s AND `$key` = %s AND payment_status < 2",
+                $order['paid_satoshi'], $order['paid_fiat'], $order['txid'],
+                $order['order_id'], $order['crypto'], $order[$key]
+            )
+        );
+        if ($claimed === false) {
+            // DB error, not a lost race — fail loudly so the server retries the callback
+            $this->log('claim_final_status: DB error while claiming final status for order_id=' . $order['order_id'], 'error');
+            status_header(500);
+            exit(__("Error: could not update payment status", 'blockonomics-bitcoin-payments'));
+        }
+        return ($claimed === 1);
+    }
+
     // Check for underpayment, overpayment or correct amount
     public function check_paid_amount($paid_satoshi, $order, $wc_order){
         $order['paid_satoshi'] = $paid_satoshi;
         $paid_amount_ratio = $paid_satoshi/$order['expected_satoshi'];
         $order['paid_fiat'] = number_format($order['expected_fiat']*$paid_amount_ratio,wc_get_price_decimals(),'.','');
 
-        // This is to update the order table before we send an email on failed and confirmed state
-        // So that the updated data is used to build the email
-        $this->update_order($order);
+        // The claim also persists paid amounts, so the row is up to date before
+        // the email/note paths below run; losers of the claim write nothing
+        if (!$this->claim_final_status($order)) {
+            return $order;
+        }
 
         if ($this->is_order_underpaid($order)) {
             if ($this->is_partial_payments_active()){

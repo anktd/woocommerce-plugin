@@ -239,10 +239,27 @@ class BlockonomicsTest extends TestCase {
      * sets txid from empty to actual value, using wrong identifier would create
      * duplicate rows instead of updating existing payment.
      */
-    public function testBtcPaymentIdentifiedByAddressNotTxid() {
+    // Mock wpdb whose prepare() substitutes args and whose query() captures the final SQL
+    private function mockWpdbCapturingQuery(&$captured_sql) {
         global $wpdb;
         $wpdb = m::mock('wpdb');
         $wpdb->prefix = 'wp_';
+        $wpdb->shouldReceive('prepare')->andReturnUsing(function($sql, ...$args) {
+            foreach ($args as $a) {
+                $sql = preg_replace('/%[sd]/', is_numeric($a) ? $a : "'" . $a . "'", $sql, 1);
+            }
+            return $sql;
+        });
+        $wpdb->shouldReceive('query')->once()->andReturnUsing(function($sql) use (&$captured_sql) {
+            $captured_sql = $sql;
+            return 1;
+        });
+        return $wpdb;
+    }
+
+    public function testBtcPaymentIdentifiedByAddressNotTxid() {
+        $captured = '';
+        $this->mockWpdbCapturingQuery($captured);
 
         $order = [
             'order_id' => 123,
@@ -255,24 +272,14 @@ class BlockonomicsTest extends TestCase {
             'expected_satoshi' => 100000
         ];
 
-        $wpdb->shouldReceive('update')
-            ->once()
-            ->with(
-                'wp_blockonomics_payments',
-                $order,
-                m::on(function($where) {
-                    return isset($where['address']) && $where['address'] === 'bc1qtest123address'
-                        && !isset($where['txid'])
-                        && $where['order_id'] === 123
-                        && $where['crypto'] === 'btc';
-                })
-            );
-
         $blockonomics = new TestableBlockonomics();
         $blockonomics->update_order($order);
 
+        $where = substr($captured, strpos($captured, ' WHERE '));
+        $this->assertStringContainsString("`address` = 'bc1qtest123address'", $where, "BTC: Should identify payment by address");
+        $this->assertStringNotContainsString('`txid`', $where, "BTC: txid must not be in the WHERE clause");
+        $this->assertStringContainsString('payment_status < 2', $where, "Final rows are immutable: only the winning claim writes them");
         m::close();
-        $this->assertTrue(true, "BTC: Should identify payment by address, not txid");
     }
 
     /**
@@ -280,9 +287,8 @@ class BlockonomicsTest extends TestCase {
      * Same logic as BTC - each BCH address is unique per payment.
      */
     public function testBchPaymentIdentifiedByAddressNotTxid() {
-        global $wpdb;
-        $wpdb = m::mock('wpdb');
-        $wpdb->prefix = 'wp_';
+        $captured = '';
+        $this->mockWpdbCapturingQuery($captured);
 
         $order = [
             'order_id' => 456,
@@ -295,24 +301,13 @@ class BlockonomicsTest extends TestCase {
             'expected_satoshi' => 50000
         ];
 
-        $wpdb->shouldReceive('update')
-            ->once()
-            ->with(
-                'wp_blockonomics_payments',
-                $order,
-                m::on(function($where) {
-                    return isset($where['address']) && $where['address'] === 'bitcoincash:qtest456address'
-                        && !isset($where['txid'])
-                        && $where['order_id'] === 456
-                        && $where['crypto'] === 'bch';
-                })
-            );
-
         $blockonomics = new TestableBlockonomics();
         $blockonomics->update_order($order);
 
+        $where = substr($captured, strpos($captured, ' WHERE '));
+        $this->assertStringContainsString("`address` = 'bitcoincash:qtest456address'", $where, "BCH: Should identify payment by address");
+        $this->assertStringNotContainsString('`txid`', $where, "BCH: txid must not be in the WHERE clause");
         m::close();
-        $this->assertTrue(true, "BCH: Should identify payment by address, not txid");
     }
 
     /**
@@ -320,9 +315,8 @@ class BlockonomicsTest extends TestCase {
      * USDT uses same address for multiple payments, so txid uniquely identifies each payment.
      */
     public function testUsdtPaymentIdentifiedByTxidNotAddress() {
-        global $wpdb;
-        $wpdb = m::mock('wpdb');
-        $wpdb->prefix = 'wp_';
+        $captured = '';
+        $this->mockWpdbCapturingQuery($captured);
 
         $order = [
             'order_id' => 789,
@@ -335,24 +329,14 @@ class BlockonomicsTest extends TestCase {
             'expected_satoshi' => 200000000
         ];
 
-        $wpdb->shouldReceive('update')
-            ->once()
-            ->with(
-                'wp_blockonomics_payments',
-                $order,
-                m::on(function($where) {
-                    return isset($where['txid']) && $where['txid'] === 'unique_usdt_txhash'
-                        && !isset($where['address'])
-                        && $where['order_id'] === 789
-                        && $where['crypto'] === 'usdt';
-                })
-            );
-
         $blockonomics = new TestableBlockonomics();
         $blockonomics->update_order($order);
 
+        $where = substr($captured, strpos($captured, ' WHERE '));
+        $this->assertStringContainsString("`txid` = 'unique_usdt_txhash'", $where, "USDT: Should identify payment by txid");
+        $this->assertStringNotContainsString('`address`', $where, "USDT: address must not be in the WHERE clause");
+        $this->assertStringContainsString('payment_status < 2', $where, "Final rows are immutable: only the winning claim writes them");
         m::close();
-        $this->assertTrue(true, "USDT: Should identify payment by txid, not address");
     }
 
     // Secret-based store matching (WPML/Polylang fix): the secret is the matching
