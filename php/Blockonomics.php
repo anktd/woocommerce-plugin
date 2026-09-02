@@ -105,46 +105,6 @@ class Blockonomics
                     'decimals' => 6,
                 )
           );
-    }  
-    /*
-     * Get list of active crypto currencies
-     */
-    public function getActiveCurrencies() {
-        $api_key = $this->get_api_key();
-
-        if (empty($api_key)) {
-            return $this->setup_error(__('API Key is not set. Please enter your API Key.', 'blockonomics-bitcoin-payments'));
-        }
-
-        // Get currencies enabled on Blockonomics store from API
-        $stores_result = $this->get_stores($api_key);
-        if (!empty($stores_result['error'])) {
-            return $this->setup_error($stores_result['error']);
-        }
-
-        $matching_store = self::findMatchingStore($stores_result['stores']);
-
-        // Result currencies
-        $checkout_currencies = [];
-        $supported_currencies = $this->getSupportedCurrencies();
-
-        // Add currencies from Blockonomics store if exact match is found
-        if ($matching_store) {
-            $blockonomics_enabled = $this->getStoreEnabledCryptos($matching_store);
-            foreach ($blockonomics_enabled as $code) {
-                if ($code != 'bch' && isset($supported_currencies[$code])) {
-                    $checkout_currencies[$code] = $supported_currencies[$code];
-                }
-            }
-        }
-
-        // Add BCH if enabled in Woocommerce settings
-        $settings = get_option('woocommerce_blockonomics_settings');
-        if (is_array($settings) && isset($settings['enable_bch']) && $settings['enable_bch'] === 'yes') {
-            $checkout_currencies['bch'] = $supported_currencies['bch'];
-        }
-
-        return $checkout_currencies;
     }
 
     /* Get cached active currencies from wp_options (for checkout display)
@@ -668,7 +628,6 @@ class Blockonomics
     public function get_order_checkout_url($order_id){
         $active_cryptos = $this->getCachedActiveCurrencies();
         $order_hash = $this->encrypt_hash($order_id);
-        // handle php error from getActiveCurrencies, when api fails
         if (!is_array($active_cryptos) || isset($active_cryptos['error'])) {
             return $this->get_parameterized_wc_url('page',array('crypto' => 'empty'));
         }
@@ -683,14 +642,6 @@ class Blockonomics
         return $order_url;
     }
     
-    // Check if a template is a nojs template
-    public function is_nojs_template($template_name){
-        if (strpos($template_name, 'nojs') === 0) {
-            return true;
-        }
-        return false;
-    }
-
     // Check if the nojs setting is activated
     public function is_nojs_active(){
         return get_option('blockonomics_nojs', false);
@@ -701,13 +652,6 @@ class Blockonomics
     }
 
 
-    public function is_error_template($template_name) {
-        if (strpos($template_name, 'error') === 0) {
-            return true;
-        }
-        return false;
-    }
-
     // Adds the style for blockonomics checkout page
     public function add_blockonomics_checkout_style($template_name){
         wp_enqueue_style( 'bnomics-style' );
@@ -715,14 +659,6 @@ class Blockonomics
             wp_enqueue_script( 'bnomics-checkout' );
         }elseif ($template_name === 'web3_checkout') {
             wp_enqueue_script( 'bnomics-web3-checkout' );
-        }
-    }
-
-    public function set_template_context($context) {
-        // Todo: With WP 5.5+, the load_template methods supports args
-        // and can be used as a replacement to this.
-        foreach ($context as $key => $value) {
-            set_query_var($key, $value);
         }
     }
 

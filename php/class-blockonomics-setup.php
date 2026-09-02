@@ -11,8 +11,6 @@ if (!defined('ABSPATH')) {
 class Blockonomics_Setup {
     private const STORE_CRYPTOS = array('btc', 'usdt');
 
-    private $api_key;
-
     private function log_http_error($context, $error) {
         if (!function_exists('wc_get_logger') || !is_wp_error($error)) {
             return;
@@ -232,7 +230,6 @@ class Blockonomics_Setup {
         update_option('blockonomics_temp_wallet_ids', $wallet_result['wallet_ids']);
         delete_option('blockonomics_temp_wallet_id');
 
-        $this->api_key = $api_key;
         update_option('blockonomics_api_key', $api_key);
 
         return array('success' => true);
